@@ -1,0 +1,166 @@
+export const mockItems = [
+  {
+    id: 1,
+    title: "Calculus Textbook - 8th Edition",
+    price: 250,
+    category: "Textbooks",
+    condition: "Good",
+    trustScore: 4.8,
+    isApproved: true,
+    image: "📚",
+    seller: "Alex Johnson",
+    postedDate: "2024-01-15",
+    views: 42
+  },
+  {
+    id: 2,
+    title: "MacBook Air 2020 - 13 inch",
+    price: 45000,
+    category: "Electronics",
+    condition: "Like New",
+    trustScore: 4.9,
+    isApproved: true,
+    image: "💻",
+    seller: "Sarah Chen",
+    postedDate: "2024-01-12",
+    views: 128
+  },
+  {
+    id: 3,
+    title: "Winter Jacket - Size M - North Face",
+    price: 800,
+    category: "Clothing",
+    condition: "Good",
+    trustScore: 4.7,
+    isApproved: true,
+    image: "🧥",
+    seller: "Mike Wilson",
+    postedDate: "2024-01-10",
+    views: 25
+  },
+  {
+    id: 4,
+    title: "Study Desk Lamp - LED Adjustable",
+    price: 350,
+    category: "Furniture",
+    condition: "New",
+    trustScore: 4.6,
+    isApproved: true,
+    image: "💡",
+    seller: "Priya Sharma",
+    postedDate: "2024-01-08",
+    views: 67
+  },
+  {
+    id: 5,
+    title: "Wireless Earbuds - Sony WF-1000XM4",
+    price: 1200,
+    category: "Electronics",
+    condition: "Good",
+    trustScore: 4.5,
+    isApproved: true,
+    image: "🎧",
+    seller: "Rahul Patel",
+    postedDate: "2024-01-05",
+    views: 89
+  },
+  {
+    id: 6,
+    title: "Organic Chemistry Notes - Complete Set",
+    price: 150,
+    category: "Textbooks",
+    condition: "Like New",
+    trustScore: 4.9,
+    isApproved: true,
+    image: "📝",
+    seller: "Emma Davis",
+    postedDate: "2024-01-03",
+    views: 156
+  },
+  {
+    id: 7,
+    title: "iPhone 13 - 128GB - Midnight",
+    price: 55000,
+    category: "Electronics",
+    condition: "Good",
+    trustScore: 4.3,
+    isApproved: true,
+    image: "📱",
+    seller: "David Kim",
+    postedDate: "2024-01-01",
+    views: 203
+  },
+  {
+    id: 8,
+    title: "Backpack - 30L Laptop Bag",
+    price: 450,
+    category: "Clothing",
+    condition: "New",
+    trustScore: 4.8,
+    isApproved: true,
+    image: "🎒",
+    seller: "Lisa Wang",
+    postedDate: "2023-12-28",
+    views: 34
+  },
+  {
+    id: 9,
+    title: "Physics Textbook - University Edition",
+    price: 300,
+    category: "Textbooks",
+    condition: "Good",
+    trustScore: 4.6,
+    isApproved: false,
+    image: "📖",
+    seller: "James Brown",
+    postedDate: "2023-12-25",
+    views: 78
+  },
+  {
+    id: 10,
+    title: "Gaming Mouse - Logitech G502",
+    price: 600,
+    category: "Electronics",
+    condition: "Like New",
+    trustScore: 4.7,
+    isApproved: true,
+    image: "🖱️",
+    seller: "Chris Lee",
+    postedDate: "2023-12-20",
+    views: 92
+  },
+  {
+    id: 11,
+    title: "Yoga Mat - Non-slip Professional",
+    price: 250,
+    category: "Furniture",
+    condition: "New",
+    trustScore: 4.4,
+    isApproved: true,
+    image: "🧘",
+    seller: "Anna Martinez",
+    postedDate: "2023-12-18",
+    views: 41
+  },
+  {
+    id: 12,
+    title: "Statistics Textbook - 5th Edition",
+    price: 180,
+    category: "Textbooks",
+    condition: "Good",
+    trustScore: 4.2,
+    isApproved: true,
+    image: "📊",
+    seller: "Robert Taylor",
+    postedDate: "2023-12-15",
+    views: 63
+  }
+];
+
+// Category average prices for deal insights
+export const categoryAverages = {
+  Textbooks: 250,
+  Electronics: 15000,
+  Clothing: 600,
+  Furniture: 500
+};

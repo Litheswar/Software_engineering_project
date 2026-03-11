@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { User, Mail, Lock, Eye, EyeOff, ShoppingBag, AlertCircle, CheckCircle } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { supabase } from '../../lib/supabaseClient';
 import { isValidEmail } from '../../utils/helpers';
 
 const fadeUp = {
@@ -11,7 +12,7 @@ const fadeUp = {
 };
 
 const Register = () => {
-  const { login } = useAuth();
+  const { register } = useAuth();
   const navigate = useNavigate();
 
   const [form, setForm] = useState({
@@ -50,21 +51,53 @@ const Register = () => {
     if (Object.keys(v).length > 0) { setErrors(v); return; }
 
     setIsLoading(true);
-    await new Promise((r) => setTimeout(r, 1000));
-    setSuccess(true);
 
-    await new Promise((r) => setTimeout(r, 1200));
+    try {
+      // 1. Register with Supabase
+      const { data, error } = await register(form.email, form.password, {
+        name: form.name.trim()
+      });
 
-    login({
-      id: Date.now(),
-      name: form.name.trim(),
-      email: form.email,
-      trustScore: 70,
-      dealsCompleted: 0,
-      verified: false,
-    });
-    navigate('/dashboard', { replace: true });
-    setIsLoading(false);
+      if (error) {
+        if (error.message.toLowerCase().includes('already registered')) {
+          setErrors({ ...errors, email: 'Email already registered' });
+        } else if (error.message.toLowerCase().includes('password')) {
+          setErrors({ ...errors, password: error.message });
+        } else {
+          setErrors({ ...errors, general: error.message });
+        }
+        setIsLoading(false);
+        return;
+      }
+
+      // 2. Insert into profiles table
+      if (data?.user) {
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .insert([
+            {
+              id: data.user.id,
+              name: form.name.trim(),
+              email: form.email,
+              trust_score: 80,
+            }
+          ]);
+
+        if (profileError) {
+          console.error("Profile creation error:", profileError);
+        }
+      }
+
+      setSuccess(true);
+      setTimeout(() => {
+        navigate('/dashboard', { replace: true });
+      }, 1500);
+
+    } catch (err) {
+      console.error(err);
+      setErrors({ ...errors, general: 'Network error occurred' });
+      setIsLoading(false);
+    }
   };
 
   const passwordStrength = () => {

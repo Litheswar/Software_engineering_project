@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Search, Plus, LogOut, Menu, X, User,
@@ -12,6 +12,12 @@ import { mockNotifications } from '../../data/mockData';
 const Navbar = () => {
   const { isAuthenticated, user, logout } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login');
+  };
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
@@ -164,7 +170,7 @@ const Navbar = () => {
 
                         {/* Logout Section */}
                         <div className="border-t border-gray-200 mt-2 pt-2 px-2">
-                          <button onClick={logout} className="w-full flex items-center gap-3 px-4 py-2 hover:bg-red-50 text-red-600 transition-colors duration-150 rounded-md cursor-pointer">
+                          <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-2 hover:bg-red-50 text-red-600 transition-colors duration-150 rounded-md cursor-pointer">
                             <LogOut className="w-5 h-5 shrink-0" />
                             <span className="text-sm font-medium">Logout</span>
                           </button>
@@ -259,7 +265,7 @@ const Navbar = () => {
                     </Link>
                   </div>
                   
-                  <button onClick={logout} className="flex items-center justify-center gap-2 w-full border border-red-100 text-danger bg-red-50 hover:bg-red-100 px-4 py-3 rounded-xl text-sm font-bold mt-2 transition-colors">
+                  <button onClick={handleLogout} className="flex items-center justify-center gap-2 w-full border border-red-100 text-danger bg-red-50 hover:bg-red-100 px-4 py-3 rounded-xl text-sm font-bold mt-2 transition-colors">
                     <LogOut size={16} /> Log out
                   </button>
                 </>

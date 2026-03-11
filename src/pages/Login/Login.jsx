@@ -3,7 +3,6 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Mail, Lock, Eye, EyeOff, ShoppingBag, AlertCircle } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { mockUsers } from '../../data/mockData';
 import { isValidEmail } from '../../utils/helpers';
 
 const fadeUp = {
@@ -44,30 +43,23 @@ const Login = () => {
     if (Object.keys(v).length > 0) { setErrors(v); return; }
 
     setIsLoading(true);
-    // Simulate API delay
-    await new Promise((r) => setTimeout(r, 900));
 
-    // Demo: try to match mock user, else use test credentials
-    const found = mockUsers.find(
-      (u) => u.email === form.email
-    );
-
-    // Allow any valid email/password combo for demo
-    if (form.password.length >= 6) {
-      login({
-        id: found?.id || 99,
-        name: found?.name || form.email.split('@')[0],
-        email: form.email,
-        trustScore: found?.trustScore || 80,
-        dealsCompleted: found?.dealsCompleted || 0,
-        verified: found?.verified || false,
-      });
+    try {
+      const { error } = await login(form.email, form.password);
+      
+      if (error) {
+        setLoginError(error.message || 'Invalid email or password');
+        setIsLoading(false);
+        return;
+      }
+      
       navigate(from, { replace: true });
-    } else {
-      setLoginError('Invalid credentials. Try any valid email and password (min 6 chars).');
+    } catch (err) {
+      console.error("Login error:", err);
+      setLoginError('An unexpected error occurred. Please try again later.');
+    } finally {
+      setIsLoading(false);
     }
-
-    setIsLoading(false);
   };
 
   return (
@@ -85,11 +77,6 @@ const Login = () => {
             </div>
             <h1 className="font-heading font-bold text-h2 text-textDark">Welcome back</h1>
             <p className="text-textMuted mt-1">Sign in to your EECShop account</p>
-          </motion.div>
-
-          {/* Demo tip */}
-          <motion.div variants={fadeUp} className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 mb-6 text-sm text-primary/80">
-            <strong>Demo:</strong> Use any valid email + password (min 6 chars) to log in.
           </motion.div>
 
           {/* Form card */}

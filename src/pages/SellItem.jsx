@@ -10,6 +10,8 @@ import { CATEGORIES, CONDITIONS, PRICE_SUGGESTIONS } from '../lib/mockData'
 import { Info, CheckCircle, Loader } from 'lucide-react'
 import toast from 'react-hot-toast'
 
+import { supabase } from '../lib/supabase'
+
 function FormField({ label, error, required, hint, children }) {
   return (
     <div>
@@ -32,6 +34,16 @@ export default function SellItem() {
   const [loading, setLoading]   = useState(false)
   const [submitted, setSubmitted] = useState(false)
 
+  const [categories, setCategories] = useState([])
+
+  useEffect(() => {
+    async function fetchCats() {
+      const { data } = await supabase.from('categories').select('name').order('name')
+      if (data) setCategories(data.map(c => c.name))
+    }
+    fetchCats()
+  }, [])
+
   const suggestion = PRICE_SUGGESTIONS[form.category]
 
   function set(k) { return e => { setForm(p=>({...p,[k]:e.target.value})); if(errors[k]) setErrors(p=>({...p,[k]:''})) } }
@@ -52,12 +64,57 @@ export default function SellItem() {
 
   async function handleSubmit(ev) {
     ev.preventDefault()
+    if (!user) { toast.error('You must be logged in to post.'); return }
     const errs = validate()
     if (Object.keys(errs).length) { setErrors(errs); toast.error('Please fix the errors below.'); return }
+    
     setLoading(true)
-    await new Promise(r => setTimeout(r, 1600)) // Simulate API call
-    setLoading(false)
-    setSubmitted(true)
+    try {
+      // 1. Upload Images to 'items-images' bucket
+      const uploadedUrls = []
+      for (const imgObj of images) {
+        const file = imgObj.file
+        const fileExt = file.name.split('.').pop()
+        const fileName = `${Math.random()}.${fileExt}`
+        const filePath = `${user.id}/${fileName}`
+
+        const { error: uploadError } = await supabase.storage
+          .from('items-images')
+          .upload(filePath, file)
+
+        if (uploadError) throw uploadError
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('items-images')
+          .getPublicUrl(filePath)
+        
+        uploadedUrls.push(publicUrl)
+      }
+
+      // 2. Create Item in DB
+      const { error: insertError } = await supabase
+        .from('items')
+        .insert({
+          title: form.title,
+          category: form.category,
+          price: Number(form.price),
+          condition: form.condition,
+          description: form.description,
+          image_url: uploadedUrls[0], // Using primary image
+          seller_id: user.id,
+          status: 'pending'
+        })
+
+      if (insertError) throw insertError
+
+      setSubmitted(true)
+      toast.success('Listing created! Waiting for approval.')
+    } catch (error) {
+      console.error('Error posting item:', error)
+      toast.error(error.message || 'Failed to post item.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   if (submitted) return (
@@ -122,7 +179,7 @@ export default function SellItem() {
                     }}
                   >
                     <option value="">Select category</option>
-                    {CATEGORIES.slice(1).map(c=><option key={c} value={c}>{c}</option>)}
+                    {categories.map(c=><option key={c} value={c}>{c}</option>)}
                   </select>
                 </FormField>
 

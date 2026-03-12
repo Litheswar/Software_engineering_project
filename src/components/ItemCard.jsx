@@ -55,7 +55,7 @@ export default function ItemCard({ item, showStatus = false, onContact }) {
       {/* Image */}
       <div style={{ position: 'relative', paddingTop: '65%', overflow: 'hidden', background: '#F8FAFC' }}>
         <img
-          src={item.images?.[0] || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400&h=250&fit=crop'}
+          src={item.image_url || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400&h=250&fit=crop'}
           alt={item.title}
           style={{
             position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
@@ -126,7 +126,7 @@ export default function ItemCard({ item, showStatus = false, onContact }) {
           }}>{item.category}</span>
           <div style={{ display: 'flex', gap: 8, color: '#9CA3AF', fontSize: 11, fontWeight: 500 }}>
             <span style={{ display: 'flex', alignItems: 'center', gap: 3 }} title="Views"><Eye size={12} /> {item.views || 0}</span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 3 }} title="Wishlist additions"><Heart size={12} fill={item.wishlistCount>0?'#9CA3AF':'none'} /> {item.wishlistCount || 0}</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 3 }} title="Wishlist additions"><Heart size={12} fill={item.wishlist_count>0?'#9CA3AF':'none'} /> {item.wishlist_count || 0}</span>
           </div>
         </div>
 
@@ -157,16 +157,16 @@ export default function ItemCard({ item, showStatus = false, onContact }) {
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               fontSize: 11, color: '#fff', fontWeight: 700,
             }}>
-              {(item.seller_name || 'U').charAt(0).toUpperCase()}
+              {(item.seller?.name || 'U').charAt(0).toUpperCase()}
             </div>
             <div>
-              <p style={{ fontSize: 13, fontWeight: 600, color: '#374151', margin: 0 }}>{item.seller_name}</p>
+              <p style={{ fontSize: 13, fontWeight: 600, color: '#374151', margin: 0 }}>{item.seller?.name || 'Anonymous'}</p>
               <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
                 <div style={{ display:'flex', alignItems:'center', gap:2, background:'#FFFBEB', color:'#B45309', padding:'2px 6px', borderRadius:6, border:'1px solid #FEF3C7', fontSize:11, fontWeight:700 }}>
                   <Star size={10} fill="#F59E0B" color="#F59E0B" />
-                  <span>{item.seller_trust}</span>
+                  <span>{item.seller?.trust_score || 0}</span>
                 </div>
-                {item.seller_trust >= 4.5 && (
+                {(item.seller?.trust_score || 0) >= 4.5 && (
                   <span style={{ background:'#DCFCE7', color:'#15803D', padding:'2px 6px', borderRadius:6, fontSize:10, fontWeight:700 }}>Trusted</span>
                 )}
               </div>

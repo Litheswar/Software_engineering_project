@@ -3,9 +3,11 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Filter, ChevronDown, ChevronUp, SlidersHorizontal } from 'lucide-react'
 import { CATEGORIES, CONDITIONS } from '../lib/mockData'
 
-export default function FilterPanel({ filters, onChange }) {
+export default function FilterPanel({ filters, onChange, categories = [] }) {
   const [open, setOpen] = useState(true)
   const [mobileOpen, setMobileOpen] = useState(false)
+
+  const displayCats = ['All Categories', ...categories]
 
   const setFilter = (key, val) => onChange({ ...filters, [key]: val })
 
@@ -15,7 +17,7 @@ export default function FilterPanel({ filters, onChange }) {
       <div>
         <p style={{fontSize:12,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em',color:'#6B7280',marginBottom:10}}>Category</p>
         <div style={{display:'flex',flexDirection:'column',gap:6}}>
-          {CATEGORIES.map(cat => (
+          {displayCats.map(cat => (
             <button key={cat}
               onClick={() => setFilter('category', cat === 'All Categories' ? '' : cat)}
               style={{

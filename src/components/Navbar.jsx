@@ -1,13 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { useAuth } from '../contexts/AuthContext'
-import { MOCK_ITEMS, CATEGORIES } from '../lib/mockData'
-import {
-  ShoppingBag, Bell, User, LogOut, Menu, X,
-  Search, Plus, Shield, ChevronDown, Activity as ActivityIcon, TrendingUp, History
-} from 'lucide-react'
-import toast from 'react-hot-toast'
+import { supabase } from '../lib/supabase'
 
 export default function Navbar({ onSearch }) {
   const { user, profile, signOut, isAdmin } = useAuth()
@@ -20,14 +14,25 @@ export default function Navbar({ onSearch }) {
 
   const [searchFocused, setSearchFocused] = useState(false)
   const [trendOpen, setTrendOpen] = useState(false)
+  const [trending, setTrending] = useState([])
+  const [categories, setCategories] = useState([])
 
   const isLanding = location.pathname === '/'
 
+  useState(() => {
+    async function fetchData() {
+      const { data: trend } = await supabase.from('items').select('*').eq('status','approved').order('views',{ascending:false}).limit(3)
+      const { data: cats } = await supabase.from('categories').select('name').limit(5)
+      if (trend) setTrending(trend)
+      if (cats) setCategories(cats.map(c=>c.name))
+    }
+    fetchData()
+  }, [])
+
   const suggestions = [
-    ...MOCK_ITEMS.filter(i => i.title.toLowerCase().includes(query.toLowerCase())).slice(0, 3).map(i => ({ type: 'item', text: i.title, id: i.id })),
-    ...CATEGORIES.filter(c => c.toLowerCase().includes(query.toLowerCase()) && c !== 'All Categories').slice(0, 2).map(c => ({ type: 'category', text: c })),
-    { type: 'history', text: 'Recent: Used Calculator' }
-  ].filter((_, i) => query.length > 0 || i === 2) // only show recent if query is empty
+    ...categories.filter(c => c.toLowerCase().includes(query.toLowerCase())).slice(0, 2).map(c => ({ type: 'category', text: c })),
+    { type: 'history', text: 'Recent: Engineering Books' }
+  ].filter((_, i) => query.length > 0 || i === 1)
 
   async function handleLogout() {
     await signOut()
@@ -136,12 +141,12 @@ export default function Navbar({ onSearch }) {
                       style={{position:'absolute',top:24,left:'50%',transform:'translateX(-50%)',width:240,background:'#fff',borderRadius:14,boxShadow:'0 10px 25px rgba(0,0,0,0.1)',border:'1px solid #E2E8F0',zIndex:200,padding:12}}
                     >
                       <p style={{fontSize:11,fontWeight:700,color:'#9CA3AF',padding:'4px 8px 8px',textTransform:'uppercase',letterSpacing:'0.05em',margin:0,borderBottom:'1px solid #F1F5F9',marginBottom:8}}>Popular Today</p>
-                      {MOCK_ITEMS.slice(6,9).map(i => (
+                      {trending.map(i => (
                         <Link key={i.id} onClick={()=>setTrendOpen(false)} to={`/item/${i.id}`} style={{display:'flex',alignItems:'center',gap:10,padding:8,borderRadius:8,textDecoration:'none',color:'#1F2937',transition:'background 0.15s'}} onMouseEnter={e=>e.currentTarget.style.background='#F8FAFC'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
-                          <img src={i.images[0]} style={{width:32,height:32,borderRadius:6,objectFit:'cover'}}/>
+                          <img src={i.image_url} alt="" style={{width:32,height:32,borderRadius:6,objectFit:'cover'}}/>
                           <div style={{minWidth:0}}>
                             <p style={{fontSize:13,fontWeight:600,margin:0,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{i.title}</p>
-                            <p style={{fontSize:12,color:'#6B7280',margin:0}}>{i.views} views</p>
+                            <p style={{fontSize:12,color:'#6B7280',margin:0}}>{i.views || 0} views</p>
                           </div>
                         </Link>
                       ))}

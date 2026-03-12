@@ -6,16 +6,7 @@ import Navbar from '../components/Navbar'
 import PageWrapper from '../components/PageWrapper'
 import ModalDialog from '../components/ModalDialog'
 import GoBack from '../components/GoBack'
-import { MOCK_ITEMS } from '../lib/mockData'
-import { Heart, MessageCircle, Flag, Star, ChevronLeft, ChevronRight, Shield, Calendar, Tag, CheckCircle } from 'lucide-react'
-import toast from 'react-hot-toast'
-
-const conditionColors = {
-  'Like New': { bg:'#DCFCE7', color:'#15803D' },
-  'Good':     { bg:'#DBEAFE', color:'#1D4ED8' },
-  'Fair':     { bg:'#FEF3C7', color:'#92400E' },
-  'Poor':     { bg:'#FEE2E2', color:'#B91C1C' },
-}
+import { supabase } from '../lib/supabase'
 
 export default function ItemDetails() {
   const { id }   = useParams()
@@ -23,7 +14,7 @@ export default function ItemDetails() {
   const { user } = useAuth()
 
   const [item, setItem]       = useState(null)
-  const [imgIdx, setImgIdx]   = useState(0)
+  const [loading, setLoading] = useState(true)
   const [liked, setLiked]     = useState(false)
   const [pop, setPop]         = useState(false)
   const [reportOpen, setReportOpen] = useState(false)
@@ -32,22 +23,52 @@ export default function ItemDetails() {
   const [pricePulse, setPricePulse] = useState(false)
 
   useEffect(() => {
-    const found = MOCK_ITEMS.find(i => i.id === id)
-    setItem(found || null)
+    async function fetchItemDetails() {
+      setLoading(true)
+      const { data, error } = await supabase
+        .from('items')
+        .select('*, seller:users(*)')
+        .eq('id', id)
+        .single()
+      
+      if (data) {
+        setItem(data)
+        // Store in recently viewed
+        try {
+          let stored = JSON.parse(localStorage.getItem('recent_views') || '[]')
+          stored = stored.filter(vid => vid !== data.id)
+          stored.unshift(data.id)
+          if (stored.length > 15) stored.pop()
+          localStorage.setItem('recent_views', JSON.stringify(stored))
+        } catch(e) {}
+
+        // Check if liked
+        if (user) {
+          const { data: wish } = await supabase
+            .from('wishlist')
+            .select('id')
+            .eq('user_id', user.id)
+            .eq('item_id', data.id)
+            .single()
+          if (wish) setLiked(true)
+        }
+      }
+      setLoading(false)
+    }
+
+    fetchItemDetails()
     setTimeout(() => setPricePulse(true), 800)
     setTimeout(() => setPricePulse(false), 6000)
-    
-    // Store in recently viewed
-    if (found) {
-      try {
-        let stored = JSON.parse(localStorage.getItem('recent_views') || '[]')
-        stored = stored.filter(vid => vid !== found.id) // remove dup
-        stored.unshift(found.id) // add front
-        if (stored.length > 15) stored.pop()
-        localStorage.setItem('recent_views', JSON.stringify(stored))
-      } catch(e) {}
-    }
-  }, [id])
+  }, [id, user])
+
+  if (loading) return (
+    <PageWrapper>
+      <Navbar />
+      <div style={{maxWidth:1280,margin:'80px auto',padding:'0 24px',textAlign:'center'}}>
+        <p>Loading item details...</p>
+      </div>
+    </PageWrapper>
+  )
 
   if (!item) return (
     <PageWrapper>
@@ -69,22 +90,47 @@ export default function ItemDetails() {
     setContactOpen(true)
   }
 
-  function toggleLike() {
-    setLiked(p=>!p)
+  async function toggleLike() {
+    if (!user) { navigate('/login'); return }
+    const newLiked = !liked
+    setLiked(newLiked)
     setPop(true)
     setTimeout(()=>setPop(false),350)
-    toast.success(liked ? 'Removed from wishlist' : 'Added to wishlist ❤️')
+    
+    try {
+      if (newLiked) {
+        await supabase.from('wishlist').insert({ user_id: user.id, item_id: item.id })
+        toast.success('Added to wishlist ❤️')
+      } else {
+        await supabase.from('wishlist').delete().eq('user_id', user.id).eq('item_id', item.id)
+        toast.success('Removed from wishlist')
+      }
+    } catch (e) {
+      toast.error('Failed to update wishlist')
+    }
   }
 
   async function sendMessage() {
     if (!message.trim()) return
+    // Simple message simulation for now as requested
     toast.success("Message sent! Seller will respond soon.")
     setMessage('')
     setContactOpen(false)
   }
 
-  function report(reason) {
-    toast.success('Report submitted. Our team will review this listing.')
+  async function report(reason) {
+    if (!user) { navigate('/login'); return }
+    try {
+      const { error } = await supabase.from('reports').insert({
+        item_id: item.id,
+        reporter_id: user.id,
+        reason: reason
+      })
+      if (error) throw error
+      toast.success('Report submitted. Our team will review this listing.')
+    } catch (e) {
+      toast.error('Failed to submit report')
+    }
     setReportOpen(false)
   }
 
@@ -104,9 +150,8 @@ export default function ItemDetails() {
           <div>
             <div style={{position:'relative',borderRadius:20,overflow:'hidden',background:'#F8FAFC',aspectRatio:'4/3'}}>
               <motion.img
-                key={imgIdx}
                 initial={{opacity:0}} animate={{opacity:1}} transition={{duration:0.3}}
-                src={images[imgIdx]}
+                src={item.image_url || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600&h=400&fit=crop'}
                 alt={item.title}
                 style={{width:'100%',height:'100%',objectFit:'cover'}}
               />
@@ -115,30 +160,7 @@ export default function ItemDetails() {
                   <span style={{background:'#9CA3AF',color:'#fff',padding:'8px 24px',borderRadius:999,fontWeight:700,fontSize:18}}>SOLD</span>
                 </div>
               )}
-              {images.length > 1 && (
-                <>
-                  <button onClick={()=>setImgIdx(p=>Math.max(0,p-1))} style={{position:'absolute',left:12,top:'50%',transform:'translateY(-50%)',width:36,height:36,borderRadius:'50%',background:'rgba(255,255,255,0.9)',border:'none',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
-                    <ChevronLeft size={18}/>
-                  </button>
-                  <button onClick={()=>setImgIdx(p=>Math.min(images.length-1,p+1))} style={{position:'absolute',right:12,top:'50%',transform:'translateY(-50%)',width:36,height:36,borderRadius:'50%',background:'rgba(255,255,255,0.9)',border:'none',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
-                    <ChevronRight size={18}/>
-                  </button>
-                </>
-              )}
             </div>
-            {images.length > 1 && (
-              <div style={{display:'flex',gap:8,marginTop:12}}>
-                {images.map((img,i)=>(
-                  <div key={i} onClick={()=>setImgIdx(i)} style={{
-                    width:60,height:60,borderRadius:10,overflow:'hidden',cursor:'pointer',
-                    border:i===imgIdx?'2px solid #2563EB':'2px solid transparent',
-                    transition:'border-color 0.2s',flexShrink:0,
-                  }}>
-                    <img src={img} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}}/>
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
 
           {/* RIGHT: Item Info */}
@@ -146,7 +168,7 @@ export default function ItemDetails() {
             {/* Category + Status */}
             <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:12}}>
               <span style={{background:'#DBEAFE',color:'#1D4ED8',padding:'3px 10px',borderRadius:999,fontSize:12,fontWeight:600}}>{item.category}</span>
-              <span style={{background:cond.bg,color:cond.color,padding:'3px 10px',borderRadius:999,fontSize:12,fontWeight:600}}>{item.condition}</span>
+              <span style={{background:conditionColors[item.condition]?.bg || '#F3F4F6',color:conditionColors[item.condition]?.color || '#6B7280',padding:'3px 10px',borderRadius:999,fontSize:12,fontWeight:600}}>{item.condition}</span>
               {item.status==='approved' && (
                 <span style={{display:'flex',alignItems:'center',gap:4,background:'#DCFCE7',color:'#15803D',padding:'3px 10px',borderRadius:999,fontSize:12,fontWeight:600}}>
                   <CheckCircle size={12}/> Verified
@@ -161,10 +183,6 @@ export default function ItemDetails() {
               <span className={pricePulse?'price-pulse':''} style={{fontSize:36,fontWeight:900,color:'#2563EB',transition:'color 0.5s'}}>
                 ₹{item.price?.toLocaleString('en-IN')}
               </span>
-              <span style={{display:'inline-block',marginLeft:12,fontSize:13,color:'#9CA3AF',textDecoration:'line-through'}}>
-                {/* suggested market price */}
-                ₹{Math.round(item.price * 1.4).toLocaleString('en-IN')} MRP
-              </span>
             </div>
 
             {/* Description */}
@@ -173,7 +191,7 @@ export default function ItemDetails() {
             {/* Meta */}
             <div style={{display:'flex',flexDirection:'column',gap:10,marginBottom:24,padding:16,background:'#F8FAFC',borderRadius:14,border:'1px solid #F1F5F9'}}>
               {[
-                { icon:<Calendar size={15}/>, label:'Posted', value: new Date(item.posted_date).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'}) },
+                { icon:<Calendar size={15}/>, label:'Posted', value: new Date(item.created_at).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'}) },
                 { icon:<Tag size={15}/>, label:'Condition', value: item.condition },
                 { icon:<Shield size={15}/>, label:'Status', value: item.status.charAt(0).toUpperCase()+item.status.slice(1) },
               ].map(m => (
@@ -225,30 +243,30 @@ export default function ItemDetails() {
               <p style={{fontSize:12,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em',color:'#6B7280',marginBottom:14}}>Seller Information</p>
               <div style={{display:'flex',alignItems:'center',gap:12}}>
                 <div style={{width:46,height:46,borderRadius:'50%',background:'linear-gradient(135deg,#2563EB,#1D4ED8)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,color:'#fff',fontWeight:700,flexShrink:0}}>
-                  {(item.seller_name||'U').charAt(0)}
+                  {(item.seller?.name || 'U').charAt(0)}
                 </div>
                 <div style={{flex:1}}>
-                  <p style={{fontWeight:700,fontSize:16,margin:'0 0 3px'}}>{item.seller_name}</p>
-                  <p style={{color:'#6B7280',fontSize:13,margin:0}}>{item.college}</p>
+                  <p style={{fontWeight:700,fontSize:16,margin:'0 0 3px'}}>{item.seller?.name || 'Anonymous'}</p>
+                  <p style={{color:'#6B7280',fontSize:13,margin:0}}>{item.seller?.college || 'Unknown College'}</p>
                 </div>
               </div>
               <div style={{display:'flex',gap:16,marginTop:16,paddingTop:14,borderTop:'1px solid #F1F5F9'}}>
                 <div style={{textAlign:'center'}}>
                   <div style={{display:'flex',alignItems:'center',gap:4,justifyContent:'center'}}>
                     <Star size={16} fill="#F59E0B" color="#F59E0B"/>
-                    <span style={{fontWeight:700,fontSize:17,color:'#1F2937'}}>{item.seller_trust}</span>
+                    <span style={{fontWeight:700,fontSize:17,color:'#1F2937'}}>{item.seller?.trust_score || 0}</span>
                   </div>
                   <p style={{fontSize:12,color:'#6B7280',margin:0}}>Trust Score</p>
                 </div>
                 <div style={{width:1,background:'#F1F5F9'}}/>
                 <div style={{textAlign:'center'}}>
-                  <span style={{fontWeight:700,fontSize:17,color:'#1F2937',display:'block'}}>{item.seller_listings}</span>
+                  <span style={{fontWeight:700,fontSize:17,color:'#1F2937',display:'block'}}>{item.seller?.listings_count || 0}</span>
                   <p style={{fontSize:12,color:'#6B7280',margin:0}}>Listings</p>
                 </div>
                 <div style={{width:1,background:'#F1F5F9'}}/>
                 <div style={{textAlign:'center'}}>
                   <CheckCircle size={20} color="#10B981" style={{margin:'0 auto 2px'}}/>
-                  <p style={{fontSize:12,color:'#6B7280',margin:0}}>Verified</p>
+                  <p style={{fontSize:12,color:'#6B7280',margin:0}}>{(item.seller?.trust_score || 0) >= 4 ? 'Verified' : 'New'}</p>
                 </div>
               </div>
             </div>
@@ -257,7 +275,7 @@ export default function ItemDetails() {
       </div>
 
       {/* Contact Modal */}
-      <ModalDialog isOpen={contactOpen} onClose={()=>setContactOpen(false)} title={`Contact ${item.seller_name}`}>
+      <ModalDialog isOpen={contactOpen} onClose={()=>setContactOpen(false)} title={`Contact ${item.seller?.name || 'Seller'}`}>
         <p style={{color:'#6B7280',fontSize:14,marginBottom:16}}>Send a message about "<strong>{item.title}</strong>"</p>
         <textarea
           value={message} onChange={e=>setMessage(e.target.value)}

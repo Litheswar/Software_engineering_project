@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '../contexts/AuthContext'
 import Navbar from '../components/Navbar'
@@ -12,6 +12,8 @@ import {
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
+import { supabase } from '../lib/supabase'
+
 const TABS = [
   { id: 'timeline',  label: 'Activity Feed',  icon: <ActivityIcon size={16}/> },
   { id: 'listings',  label: 'My Listings',    icon: <Package size={16}/> },
@@ -19,41 +21,88 @@ const TABS = [
   { id: 'wishlist',  label: 'Wishlist',       icon: <Heart size={16}/> },
 ]
 
-const myItems = MOCK_ITEMS.slice(0, 4)
-const myWishlist = [MOCK_ITEMS[0], MOCK_ITEMS[3]]
-
-const chatRequests = [
-  { id:1, buyer:'Priya K.', item:'MacBook Pro 13"', msg:"Hi! Is the MacBook still available? Can we meet on campus?", time:'2h ago', status:'new' },
-  { id:2, buyer:'Dev P.', item:'Engineering Mathematics', msg:"I'm interested. Can you lower the price a bit?", time:'5h ago', status:'replied' },
-  { id:3, buyer:'Meera V.', item:'Casio Calculator', msg:"Is the cover included? What's the battery status?", time:'1d ago', status:'new' },
-]
-
 function StatusBadge({ status }) {
-  const map = { approved:{bg:'#DCFCE7',color:'#15803D',label:'Approved'}, pending:{bg:'#FEF3C7',color:'#92400E',label:'Pending'}, sold:{bg:'#F3F4F6',color:'#6B7280',label:'Sold'} }
-  const s = map[status] || map.approved
+  const map = { 
+    approved: { bg:'#DCFCE7', color:'#15803D', label:'Approved' }, 
+    pending: { bg:'#FEF3C7', color:'#92400E', label:'Pending' }, 
+    sold: { bg:'#F3F4F6', color:'#6B7280', label:'Sold' },
+    rejected: { bg:'#FEE2E2', color:'#991B1B', label:'Rejected' }
+  }
+  const s = map[status] || map.pending
   return <span style={{background:s.bg,color:s.color,padding:'3px 10px',borderRadius:999,fontSize:12,fontWeight:600}}>{s.label}</span>
 }
 
 export default function Activity() {
   const { user } = useAuth()
   const [activeTab, setActiveTab] = useState('timeline')
-  const [items, setItems]         = useState(myItems)
+  const [myListings, setMyListings] = useState([])
+  const [myWishlist, setMyWishlist] = useState([])
+  const [chatRequests, setChatRequests] = useState([])
+  const [loading, setLoading] = useState(true)
   const [deleteModal, setDeleteModal] = useState(null)
   const [replyModal, setReplyModal]   = useState(null)
   const [reply, setReply]         = useState('')
   const [showConfetti, setShowConfetti] = useState(false)
 
-  function markSold(id) {
-    setItems(p => p.map(i => i.id===id ? {...i,status:'sold'} : i))
-    toast.success('Congratulations! Your item has been marked as sold.')
-    setShowConfetti(true)
-    setTimeout(() => setShowConfetti(false), 4000)
+  useEffect(() => {
+    if (!user) return
+    fetchUserActivity()
+  }, [user])
+
+  async function fetchUserActivity() {
+    setLoading(true)
+    
+    // Fetch user's listings
+    const { data: listings } = await supabase
+      .from('items')
+      .select('*')
+      .eq('seller_id', user.id)
+      .order('created_at', { ascending: false })
+    
+    // Fetch user's wishlist (joined with items)
+    const { data: wishlistData } = await supabase
+      .from('wishlist')
+      .select('*, item:items(*)')
+      .eq('user_id', user.id)
+
+    if (listings) setMyListings(listings)
+    if (wishlistData) setMyWishlist(wishlistData.map(w => w.item).filter(i => i !== null))
+    setLoading(false)
   }
 
-  function deleteItem() {
-    setItems(p => p.filter(i => i.id !== deleteModal))
-    toast.success('Item deleted')
-    setDeleteModal(null)
+  async function markSold(id) {
+    try {
+      const { error } = await supabase
+        .from('items')
+        .update({ status: 'sold' })
+        .eq('id', id)
+      
+      if (error) throw error
+      
+      setMyListings(p => p.map(i => i.id === id ? { ...i, status: 'sold' } : i))
+      toast.success('Congratulations! Your item has been marked as sold.')
+      setShowConfetti(true)
+      setTimeout(() => setShowConfetti(false), 4000)
+    } catch (e) {
+      toast.error('Failed to update status')
+    }
+  }
+
+  async function deleteItem() {
+    try {
+      const { error } = await supabase
+        .from('items')
+        .delete()
+        .eq('id', deleteModal)
+      
+      if (error) throw error
+      
+      setMyListings(p => p.filter(i => i.id !== deleteModal))
+      toast.success('Listing deleted')
+      setDeleteModal(null)
+    } catch (e) {
+      toast.error('Failed to delete listing')
+    }
   }
 
   function sendReply() {
@@ -133,12 +182,14 @@ export default function Activity() {
           {/* ---- MY LISTINGS ---- */}
           {activeTab === 'listings' && (
             <motion.div key="listings" initial={{opacity:0,x:20}} animate={{opacity:1,x:0}} exit={{opacity:0,x:-20}} transition={{duration:0.2}}>
-              {items.length === 0 ? (
+              {loading ? (
+                <div style={{textAlign:'center',padding:'40px 0'}}><p>Loading listings...</p></div>
+              ) : myListings.length === 0 ? (
                 <div style={{textAlign:'center',padding:'60px 0'}}>
                   <Package size={48} color="#D1D5DB" style={{margin:'0 auto 12px'}}/>
                   <h3 style={{color:'#6B7280',fontWeight:600}}>No listings yet</h3>
                 </div>
-              ) : items.map(item => (
+              ) : myListings.map(item => (
                 <motion.div key={item.id}
                   layout exit={{opacity:0,height:0}}
                   style={{
@@ -147,7 +198,7 @@ export default function Activity() {
                     border:'1px solid #F1F5F9',boxShadow:'0 2px 8px rgba(0,0,0,0.05)',
                   }}
                 >
-                  <img src={item.images?.[0]||''} alt="" style={{width:72,height:72,borderRadius:12,objectFit:'cover',flexShrink:0,background:'#F8FAFC'}} />
+                  <img src={item.image_url||''} alt="" style={{width:72,height:72,borderRadius:12,objectFit:'cover',flexShrink:0,background:'#F8FAFC'}} />
                   <div style={{flex:1,minWidth:0}}>
                     <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:4,flexWrap:'wrap'}}>
                       <p style={{fontWeight:700,fontSize:15,margin:0,color:'#1F2937',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:250}}>{item.title}</p>
@@ -162,7 +213,7 @@ export default function Activity() {
                         <CheckCircle size={13}/> Mark Sold
                       </button>
                     )}
-                    <button style={{width:36,height:36,borderRadius:10,border:'2px solid #E2E8F0',background:'#fff',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',transition:'all 0.2s'}}
+                    <button onClick={() => navigate(`/edit-item/${item.id}`)} style={{width:36,height:36,borderRadius:10,border:'2px solid #E2E8F0',background:'#fff',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',transition:'all 0.2s'}}
                       onMouseEnter={e=>{e.currentTarget.style.borderColor='#2563EB'}}
                       onMouseLeave={e=>{e.currentTarget.style.borderColor='#E2E8F0'}}
                     >
@@ -183,7 +234,13 @@ export default function Activity() {
           {/* ---- CHAT REQUESTS ---- */}
           {activeTab === 'chats' && (
             <motion.div key="chats" initial={{opacity:0,x:20}} animate={{opacity:1,x:0}} exit={{opacity:0,x:-20}} transition={{duration:0.2}}>
-              {chatRequests.map(chat => (
+              {chatRequests.length === 0 ? (
+                <div style={{textAlign:'center',padding:'60px 0'}}>
+                  <MessageCircle size={48} color="#D1D5DB" style={{margin:'0 auto 12px'}}/>
+                  <h3 style={{color:'#6B7280',fontWeight:600}}>No messages yet</h3>
+                  <p style={{color:'#94A3B8',fontSize:14}}>When students contact you about your items, messages will appear here.</p>
+                </div>
+              ) : chatRequests.map(chat => (
                 <div key={chat.id} style={{padding:20,background:'#fff',borderRadius:16,marginBottom:12,border:`1px solid ${chat.status==='new'?'#BFDBFE':'#F1F5F9'}`,boxShadow:'0 2px 8px rgba(0,0,0,0.05)',position:'relative'}}>
                   {chat.status==='new' && (
                     <span style={{position:'absolute',top:16,right:16,background:'#DBEAFE',color:'#1D4ED8',padding:'2px 8px',borderRadius:999,fontSize:11,fontWeight:700}}>New</span>
@@ -209,7 +266,9 @@ export default function Activity() {
           {/* ---- WISHLIST ---- */}
           {activeTab === 'wishlist' && (
             <motion.div key="wishlist" initial={{opacity:0,x:20}} animate={{opacity:1,x:0}} exit={{opacity:0,x:-20}} transition={{duration:0.2}}>
-              {myWishlist.length === 0 ? (
+              {loading ? (
+                <div style={{textAlign:'center',padding:'40px 0'}}><p>Loading wishlist...</p></div>
+              ) : myWishlist.length === 0 ? (
                 <div style={{textAlign:'center',padding:'60px 0'}}>
                   <Heart size={48} color="#D1D5DB" style={{margin:'0 auto 12px'}}/>
                   <h3 style={{color:'#6B7280',fontWeight:600}}>No saved items</h3>
@@ -217,8 +276,8 @@ export default function Activity() {
               ) : (
                 <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(240px,1fr))',gap:20}}>
                   {myWishlist.map(item => (
-                    <div key={item.id} style={{background:'#fff',borderRadius:16,overflow:'hidden',border:'1px solid #F1F5F9',boxShadow:'0 2px 8px rgba(0,0,0,0.06)'}}>
-                      <img src={item.images?.[0]} alt="" style={{width:'100%',height:160,objectFit:'cover'}}/>
+                    <div key={item.id} onClick={() => navigate(`/item/${item.id}`)} style={{background:'#fff',borderRadius:16,overflow:'hidden',border:'1px solid #F1F5F9',boxShadow:'0 2px 8px rgba(0,0,0,0.06)',cursor:'pointer'}}>
+                      <img src={item.image_url} alt="" style={{width:'100%',height:160,objectFit:'cover'}}/>
                       <div style={{padding:14}}>
                         <p style={{fontWeight:700,fontSize:14,margin:'0 0 4px'}}>{item.title}</p>
                         <p style={{color:'#2563EB',fontWeight:700,fontSize:17,margin:'0 0 10px'}}>₹{item.price?.toLocaleString('en-IN')}</p>

@@ -55,6 +55,18 @@ export default function Profile() {
     await updateProfile({ avatar_url: url })
   }
 
+  const [stats, setStats] = useState({ listings: 0, sold: 0 })
+  
+  useEffect(() => {
+    async function fetchStats() {
+      if (!user) return
+      const { count: listings } = await supabase.from('items').select('*', { count: 'exact', head: true }).eq('seller_id', user.id).neq('status', 'sold')
+      const { count: sold } = await supabase.from('items').select('*', { count: 'exact', head: true }).eq('seller_id', user.id).eq('status', 'sold')
+      setStats({ listings: listings || 0, sold: sold || 0 })
+    }
+    fetchStats()
+  }, [user])
+
   // Calculate completion percentage
   const fields = [displayUser.name, displayUser.college, displayUser.bio, displayUser.avatar_url]
   const completedFields = fields.filter(f => f && f.length > 0).length
@@ -155,7 +167,7 @@ export default function Profile() {
                 </div>
                 <div style={{ borderLeft: '1px solid #E2E8F0', height: 40, paddingPadding: 24 }} />
                 <div style={{ textAlign: 'center' }}>
-                  <span style={{ display: 'block', fontSize: 20, fontWeight: 800, color: '#1F2937' }}>{displayUser.sold_count || 12}</span>
+                  <span style={{ display: 'block', fontSize: 20, fontWeight: 800, color: '#1F2937' }}>{stats.sold}</span>
                   <span style={{ fontSize: 12, color: '#6B7280', fontWeight: 600 }}>Deals</span>
                 </div>
               </div>
@@ -229,13 +241,13 @@ export default function Profile() {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
                   <div style={{ background: '#F8FAFC', padding: 20, borderRadius: 20, textAlign: 'center', border: '1px solid #F1F5F9' }}>
                     <Package size={24} color="#2563EB" style={{ margin: '0 auto 12px' }} />
-                    <span style={{ fontSize: 24, fontWeight: 800, color: '#1F2937', display: 'block' }}>{displayUser.listings_count || 3}</span>
+                    <span style={{ fontSize: 24, fontWeight: 800, color: '#1F2937', display: 'block' }}>{stats.listings}</span>
                     <span style={{ fontSize: 13, color: '#6B7280', fontWeight: 600 }}>Active Listings</span>
                   </div>
                   <div style={{ background: '#F8FAFC', padding: 20, borderRadius: 20, textAlign: 'center', border: '1px solid #F1F5F9' }}>
                     <Heart size={24} color="#EF4444" style={{ margin: '0 auto 12px' }} />
-                    <span style={{ fontSize: 24, fontWeight: 800, color: '#1F2937', display: 'block' }}>5</span>
-                    <span style={{ fontSize: 13, color: '#6B7280', fontWeight: 600 }}>Wishlist</span>
+                    <span style={{ fontSize: 24, fontWeight: 800, color: '#1F2937', display: 'block' }}>{stats.sold}</span>
+                    <span style={{ fontSize: 13, color: '#6B7280', fontWeight: 600 }}>Items Sold</span>
                   </div>
                 </div>
 

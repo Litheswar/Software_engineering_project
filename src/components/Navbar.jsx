@@ -32,7 +32,7 @@ export default function Navbar({ onSearch }) {
   async function handleLogout() {
     await logout()
     toast.success('Logged out successfully')
-    navigate('/')
+    navigate('/login')
     setDropOpen(false)
   }
 

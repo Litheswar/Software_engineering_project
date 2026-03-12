@@ -38,12 +38,28 @@ export function AuthProvider({ children }) {
   }, [])
 
   async function fetchProfile(userId) {
-    const { data } = await supabase
-      .from('profiles')
+    const { data, error } = await supabase
+      .from('users')
       .select('*')
       .eq('id', userId)
       .single()
     if (data) setProfile(data)
+    return { data, error }
+  }
+
+  async function updateProfile(updates) {
+    if (useMock) {
+      setProfile(p => ({ ...p, ...updates }))
+      return { error: null }
+    }
+    const { data, error } = await supabase
+      .from('users')
+      .update(updates)
+      .eq('id', user.id)
+      .select()
+      .single()
+    if (!error && data) setProfile(data)
+    return { error }
   }
 
   async function register({ name, email, password, college }) {
@@ -54,15 +70,16 @@ export function AuthProvider({ children }) {
       return { error: null }
     }
     const { data, error } = await supabase.auth.signUp({ email, password,
-      options: { data: { name, college } }
+      options: { 
+        data: { name, college },
+        emailRedirectTo: `${window.location.origin}/dashboard`
+      }
     })
-    if (!error && data.user) {
-      await supabase.from('profiles').upsert({
-        id: data.user.id, name, college, email,
-        trust_score: 0, listings_count: 0,
-      })
-    }
-    return { error }
+    
+    // Note: We no longer manually insert here as the database trigger 
+    // handled by on_auth_user_created will take care of it atomically.
+    
+    return { error, data }
   }
 
   async function login({ email, password }) {
@@ -72,8 +89,15 @@ export function AuthProvider({ children }) {
       setProfile(mockU)
       return { error: null }
     }
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
-    return { error }
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+    if (error) return { error }
+    
+    // If we have a user but no profile, try to fetch it again
+    if (data.user && !profile) {
+      await fetchProfile(data.user.id)
+    }
+    
+    return { data, error: null }
   }
 
   async function logout() {
@@ -83,7 +107,7 @@ export function AuthProvider({ children }) {
     setProfile(null)
   }
 
-  const value = { user, profile, loading, useMock, register, login, logout,
+  const value = { user, profile, loading, useMock, register, login, logout, updateProfile,
     isAdmin: profile?.role === 'admin' || user?.email === 'admin@eecshop.com'
   }
 

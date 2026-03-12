@@ -9,9 +9,29 @@ import { Star, CheckCircle, Package, TrendingUp, Search, Shield, Trash2, Camera,
 import toast from 'react-hot-toast'
 
 export default function Profile() {
-  const { user, profile } = useAuth()
+  const { user, profile, updateProfile } = useAuth()
   const displayUser = profile || MOCK_USER
   const [deleteConfirm, setDeleteConfirm] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
+  const [editForm, setEditForm] = useState({ name: '', college: '' })
+  const [isSaving, setIsSaving] = useState(false)
+
+  const toggleEdit = () => {
+    setEditForm({ name: displayUser.name || '', college: displayUser.college || '' })
+    setIsEditing(!isEditing)
+  }
+
+  const handleSave = async () => {
+    setIsSaving(true)
+    const { error } = await updateProfile(editForm)
+    setIsSaving(false)
+    if (!error) {
+      toast.success('Profile updated successfully! ✨')
+      setIsEditing(false)
+    } else {
+      toast.error(error.message || 'Failed to update profile')
+    }
+  }
 
   const progress = Math.min(100, (displayUser.trust_score / 5) * 100)
 
@@ -33,13 +53,54 @@ export default function Profile() {
               </button>
             </div>
             <div style={{flex:1,minWidth:250}}>
-              <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:6}}>
-                <h1 style={{fontSize:28,fontWeight:800,color:'#1F2937',margin:0}}>{displayUser.name}</h1>
-                <span style={{background:'#DCFCE7',color:'#15803D',padding:'4px 10px',borderRadius:999,fontSize:12,fontWeight:700,display:'flex',alignItems:'center',gap:4}}>
-                  <CheckCircle size={14}/> Verified Student
-                </span>
+              <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:6,justifyContent:'space-between'}}>
+                {isEditing ? (
+                  <input 
+                    value={editForm.name} 
+                    onChange={e => setEditForm(p => ({ ...p, name: e.target.value }))}
+                    className="input-field"
+                    style={{fontSize:20,fontWeight:700,padding:'8px 12px'}}
+                    placeholder="Full Name"
+                  />
+                ) : (
+                  <h1 style={{fontSize:28,fontWeight:800,color:'#1F2937',margin:0}}>{displayUser.name}</h1>
+                )}
+                
+                <div style={{display:'flex',gap:8}}>
+                  {isEditing ? (
+                    <>
+                      <button onClick={handleSave} disabled={isSaving} className="btn-primary" style={{padding:'6px 16px',fontSize:13}}>
+                        {isSaving ? 'Saving...' : 'Save'}
+                      </button>
+                      <button onClick={()=>setIsEditing(false)} className="btn-secondary" style={{padding:'6px 16px',fontSize:13}}>Cancel</button>
+                    </>
+                  ) : (
+                    <button onClick={toggleEdit} className="btn-secondary" style={{padding:'6px 16px',fontSize:13}}>Edit Profile</button>
+                  )}
+                </div>
               </div>
-              <p style={{fontSize:16,color:'#6B7280',margin:'0 0 16px'}}>🎓 {displayUser.college} • Joined {new Date(displayUser.joined_date).getFullYear()}</p>
+              
+              <p style={{background:'#DCFCE7',color:'#15803D',padding:'4px 10px',borderRadius:999,fontSize:12,fontWeight:700,display:'inline-flex',alignItems:'center',gap:4,marginBottom:12}}>
+                <CheckCircle size={14}/> Verified Student
+              </p>
+
+              {isEditing ? (
+                <div style={{marginBottom:16}}>
+                  <input 
+                    value={editForm.college} 
+                    onChange={e => setEditForm(p => ({ ...p, college: e.target.value }))}
+                    className="input-field"
+                    style={{fontSize:14,padding:'8px 12px'}}
+                    placeholder="College Name"
+                  />
+                </div>
+              ) : (
+                <div style={{display:'flex',flexDirection:'column',gap:4}}>
+                  <p style={{fontSize:16,color:'#374151',margin:0,fontWeight:600}}>🎓 {displayUser.college}</p>
+                  <p style={{fontSize:14,color:'#6B7280',margin:0}}>✉️ {displayUser.email || user?.email}</p>
+                  <p style={{fontSize:13,color:'#9CA3AF',margin:'4px 0 0'}}>Member since {displayUser.created_at ? new Date(displayUser.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : 'March 2024'}</p>
+                </div>
+              )}
               
               <div style={{maxWidth:300}}>
                 <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>

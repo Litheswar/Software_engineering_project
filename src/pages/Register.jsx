@@ -56,15 +56,18 @@ export default function Register() {
       return
     }
     setLoading(true)
-    const { error } = await register(form)
+    const { data, error } = await register(form)
     setLoading(false)
     if (error) {
       setErrors({ general: error.message || 'Registration failed. Try again.' })
       setShake(true)
       setTimeout(() => setShake(false), 500)
-    } else {
+    } else if (data?.session) {
       toast.success('Account created! Welcome to EECShop 🎉')
       navigate('/dashboard')
+    } else {
+      toast.success('Account created! Please check your email to verify your account. ✉️')
+      navigate('/login')
     }
   }
 

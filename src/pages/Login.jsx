@@ -36,7 +36,13 @@ export default function Login() {
     const { error } = await login(form)
     setLoading(false)
     if (error) {
-      setErrors({ general: error.message || 'Login failed. Check your credentials.' })
+      let msg = error.message
+      if (msg.includes('Email not confirmed')) {
+        msg = 'Please confirm your email address before logging in. Check your inbox! ✉️'
+      } else if (msg.includes('Invalid login credentials')) {
+        msg = 'Incorrect email or password. Please try again.'
+      }
+      setErrors({ general: msg })
       setShake(true)
       setTimeout(() => setShake(false), 500)
     } else {

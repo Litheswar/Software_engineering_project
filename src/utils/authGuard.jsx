@@ -1,5 +1,4 @@
-import React from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
+import { Navigate, useLocation, Outlet } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 /**
@@ -7,14 +6,22 @@ import { useAuth } from '../context/AuthContext';
  * Redirects to /login if user is not authenticated.
  */
 const AuthGuard = ({ children }) => {
-  const { isAuthenticated } = useAuth();
+  const { user, loading } = useAuth();
   const location = useLocation();
 
-  if (!isAuthenticated) {
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-surface">
+        <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!user) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  return children;
+  return children ? children : <Outlet />;
 };
 
 export default AuthGuard;

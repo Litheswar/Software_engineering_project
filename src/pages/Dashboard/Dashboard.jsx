@@ -1,7 +1,8 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Grid, List, Package } from 'lucide-react';
+import { Search, Grid, List, Package, RefreshCw, AlertCircle } from 'lucide-react';
+import { supabase } from '../../lib/supabaseClient';
 import { mockItems } from '../../data/mockData';
 import ItemCard from '../../components/ItemCard/ItemCard';
 import FilterBar from '../../components/FilterBar/FilterBar';
@@ -47,11 +48,54 @@ const Dashboard = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [wishlist, setWishlist] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [items, setItems] = useState([]);
+  const [error, setError] = useState(null);
 
-  // Simulate initial load
+  // Fetch real items from Supabase
+  const fetchItems = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      console.log("Fetching items from Supabase...");
+      const { data, error: fetchError } = await supabase
+        .from('items')
+        .select(`
+          *,
+          profiles (
+            name,
+            trust_score
+          )
+        `)
+        .order('created_at', { ascending: false });
+
+      if (fetchError) throw fetchError;
+
+      // Transform data for ItemCard component
+      const transformedItems = data.map(item => ({
+        id: item.id,
+        title: item.title,
+        price: item.price,
+        image: (item.images && item.images.length > 0) ? item.images[0] : null,
+        category: item.category,
+        condition: item.condition,
+        description: item.description,
+        seller: item.profiles?.name || 'Anonymous',
+        trustScore: item.profiles?.trust_score || 0,
+        postedAt: item.created_at
+      }));
+
+      setItems(transformedItems);
+      console.log(`Fetched ${transformedItems.length} items.`);
+    } catch (err) {
+      console.error("Error fetching items:", err);
+      setError("Failed to load marketplace items. Please try again later.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const t = setTimeout(() => setLoading(false), 800);
-    return () => clearTimeout(t);
+    fetchItems();
   }, []);
 
   // Sync URL search param
@@ -90,12 +134,12 @@ const Dashboard = () => {
 
   // Filter + sort logic
   const filteredItems = useMemo(() => {
-    let items = [...mockItems];
+    let result = [...items];
 
     // Search
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
-      items = items.filter(
+      result = result.filter(
         (item) =>
           item.title.toLowerCase().includes(q) ||
           item.category.toLowerCase().includes(q) ||
@@ -105,36 +149,36 @@ const Dashboard = () => {
 
     // Category
     if (filters.category !== 'all') {
-      items = items.filter((item) => item.category === filters.category);
+      result = result.filter((item) => item.category === filters.category);
     }
 
     // Condition
     if (filters.condition !== 'all') {
-      items = items.filter((item) => item.condition === filters.condition);
+      result = result.filter((item) => item.condition === filters.condition);
     }
 
     // Max price
     if (filters.maxPrice) {
-      items = items.filter((item) => item.price <= Number(filters.maxPrice));
+      result = result.filter((item) => item.price <= Number(filters.maxPrice));
     }
 
     // Sort
     switch (filters.sort) {
       case 'price-asc':
-        items.sort((a, b) => a.price - b.price);
+        result.sort((a, b) => a.price - b.price);
         break;
       case 'price-desc':
-        items.sort((a, b) => b.price - a.price);
+        result.sort((a, b) => b.price - a.price);
         break;
       case 'trust':
-        items.sort((a, b) => b.trustScore - a.trustScore);
+        result.sort((a, b) => b.trustScore - a.trustScore);
         break;
       default:
-        items.sort((a, b) => new Date(b.postedAt) - new Date(a.postedAt));
+        result.sort((a, b) => new Date(b.postedAt) - new Date(a.postedAt));
     }
 
-    return items;
-  }, [searchQuery, filters]);
+    return result;
+  }, [items, searchQuery, filters]);
 
   // Pagination
   const totalPages = Math.ceil(filteredItems.length / ITEMS_PER_PAGE);
@@ -186,7 +230,12 @@ const Dashboard = () => {
         {/* Results header */}
         <div className="flex items-center justify-between mb-4">
           <p className="text-sm text-textMuted">
-            {loading ? 'Loading...' : (
+            {loading ? 'Loading...' : error ? (
+              <span className="text-danger flex items-center gap-2">
+                <AlertCircle size={14} /> {error}
+                <button onClick={fetchItems} className="text-primary hover:underline font-medium">Try Again</button>
+              </span>
+            ) : (
               <>
                 <span className="font-semibold text-textDark">{filteredItems.length}</span> items found
                 {searchQuery && (
@@ -208,22 +257,22 @@ const Dashboard = () => {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="flex flex-col items-center justify-center py-20 text-center"
           >
-            <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-              <Package size={36} className="text-textMuted" />
+           <div className="bg-white rounded-3xl p-16 text-center border border-gray-100 shadow-premium">
+            <div className="w-20 h-20 bg-primary/5 rounded-full flex items-center justify-center mx-auto mb-6">
+              <Package size={32} className="text-primary/40" />
             </div>
-            <h3 className="font-heading font-semibold text-lg text-textDark mb-2">No Items Found</h3>
-            <p className="text-textMuted text-sm max-w-sm">
-              Try adjusting your filters or search query. New items are posted daily!
+            <h3 className="font-heading font-bold text-xl text-textDark mb-2">No items available yet.</h3>
+            <p className="text-textMuted max-w-sm mx-auto mb-8">
+              Be the first to post something in this category!
             </p>
             <button
               onClick={handleReset}
-              className="mt-4 btn-outline text-sm"
+              className="text-primary font-bold hover:underline py-2 px-4"
             >
-              Clear Filters
+              Clear all filters
             </button>
-          </motion.div>
+          </div></motion.div>
         ) : (
           <AnimatePresence mode="wait">
             <motion.div
@@ -232,11 +281,11 @@ const Dashboard = () => {
               animate="visible"
               className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5"
             >
-              {paginatedItems.map((item, i) => (
+              {paginatedItems?.map((item, i) => (
                 <motion.div key={item.id} custom={i} variants={cardVariants}>
                   <ItemCard
                     item={item}
-                    wishlisted={wishlist.includes(item.id)}
+                    wishlisted={wishlist?.includes(item.id)}
                     onWishlist={handleWishlist}
                   />
                 </motion.div>

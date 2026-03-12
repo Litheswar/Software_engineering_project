@@ -2,6 +2,7 @@ import React, { Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import AuthGuard from './utils/authGuard';
+import ErrorBoundary from './components/ErrorBoundary';
 import Navbar from './components/Navbar/Navbar';
 
 // Lazy-load pages
@@ -41,26 +42,30 @@ function App() {
     <AuthProvider>
       <BrowserRouter>
         <Navbar />
-        <Suspense fallback={<PageLoader />}>
-          <Routes>
-            {/* Public routes */}
-            <Route path="/" element={<Landing />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
+        <ErrorBoundary>
+          <Suspense fallback={<PageLoader />}>
+            <Routes>
+              {/* Public routes */}
+              <Route path="/" element={<Landing />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
 
-            {/* Protected routes */}
-            {PROTECTED.map(({ path, element }) => (
-              <Route
-                key={path}
-                path={path}
-                element={<AuthGuard>{element}</AuthGuard>}
-              />
-            ))}
+              {/* Protected routes */}
+              <Route element={<AuthGuard />}>
+                {PROTECTED.map(({ path, element }) => (
+                  <Route
+                    key={path}
+                    path={path}
+                    element={element}
+                  />
+                ))}
+              </Route>
 
-            {/* Fallback */}
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </Suspense>
+              {/* Fallback */}
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </Suspense>
+        </ErrorBoundary>
       </BrowserRouter>
     </AuthProvider>
   );

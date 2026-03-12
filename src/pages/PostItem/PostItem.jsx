@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Upload, CheckCircle, AlertCircle, ChevronDown, Info
+  Upload, CheckCircle, AlertCircle, ChevronDown, Info, X
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { supabase } from '../../lib/supabaseClient';
+import { useAuth } from '../../context/AuthContext';
 import { mockCategories, mockConditions } from '../../data/mockData';
 import { formatPrice } from '../../utils/helpers';
 
@@ -18,6 +19,8 @@ const PRICE_SUGGESTIONS = {
 const STEPS = ['Item Info', 'Pricing', 'Images', 'Review'];
 
 const PostItem = () => {
+  const { user } = useAuth();
+  const navigate = useNavigate();
   const [step, setStep] = useState(0);
   const [form, setForm] = useState({
     title: '',
@@ -30,6 +33,8 @@ const PostItem = () => {
   const [errors, setErrors] = useState({});
   const [submitted, setSubmitted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [generalError, setGeneralError] = useState('');
 
   const handleChange = (field) => (e) => {
     setForm({ ...form, [field]: e.target.value });
@@ -61,10 +66,72 @@ const PostItem = () => {
   const handleBack = () => setStep((s) => Math.max(s - 1, 0));
 
   const handleSubmit = async () => {
+    if (!user) {
+      setGeneralError('You must be logged in to post an item.');
+      return;
+    }
+
     setIsLoading(true);
-    await new Promise((r) => setTimeout(r, 1200));
-    setIsLoading(false);
-    setSubmitted(true);
+    setGeneralError('');
+    
+    try {
+      let imageUrl = null;
+
+      // 1. Upload Image to Supabase Storage
+      if (form.image) {
+        console.log("Uploading image...");
+        const fileExt = form.image.name.split('.').pop();
+        const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+        const filePath = `items/${fileName}`;
+
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('item-images')
+          .upload(filePath, form.image);
+
+        if (uploadError) throw uploadError;
+
+        // 2. Get Public URL
+        const { data: { publicUrl } } = supabase.storage
+          .from('item-images')
+          .getPublicUrl(filePath);
+        
+        imageUrl = publicUrl;
+        console.log("Image uploaded, public URL:", imageUrl);
+      }
+
+      // 3. Insert Record into items table
+      console.log("Inserting item record...");
+      const { error: insertError } = await supabase
+        .from('items')
+        .insert([
+          {
+            title: form.title.trim(),
+            description: form.description.trim(),
+            price: parseFloat(form.price),
+            category: form.category,
+            condition: form.condition,
+            images: imageUrl ? [imageUrl] : [],
+            seller_id: user.id,
+            status: 'active'
+          }
+        ]);
+
+      if (insertError) throw insertError;
+
+      console.log("Item posted successfully!");
+      setSubmitted(true);
+      
+      // Auto-redirect to dashboard after 2 seconds
+      setTimeout(() => {
+        navigate('/dashboard');
+      }, 2000);
+
+    } catch (error) {
+      console.error("Submission error:", error);
+      setGeneralError(error.message || 'An error occurred while posting your item.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   if (submitted) {
@@ -268,28 +335,48 @@ const PostItem = () => {
                 <div className="space-y-5">
                   <h2 className="font-heading font-semibold text-lg text-textDark mb-4">Add Images</h2>
                   <div
-                    className="border-2 border-dashed border-gray-200 rounded-2xl p-10 flex flex-col items-center gap-3 cursor-pointer hover:border-primary hover:bg-primary/5 transition-all"
-                    onClick={() => document.getElementById('file-input').click()}
+                    className="border-2 border-dashed border-gray-200 rounded-2xl p-6 sm:p-10 flex flex-col items-center gap-3 cursor-pointer hover:border-primary hover:bg-primary/5 transition-all relative overflow-hidden"
+                    onClick={() => !form.image && document.getElementById('file-input').click()}
                   >
-                    <div className="w-14 h-14 bg-primary/10 rounded-full flex items-center justify-center">
-                      <Upload size={24} className="text-primary" />
-                    </div>
-                    <p className="font-medium text-textDark">Upload Photos</p>
-                    <p className="text-sm text-textMuted text-center">Drag &amp; drop or click to select (JPEG, PNG, up to 5MB)</p>
+                    {form.image ? (
+                      <div className="w-full h-full flex flex-col items-center">
+                        <img 
+                          src={URL.createObjectURL(form.image)} 
+                          alt="Preview" 
+                          className="max-h-48 rounded-lg object-contain mb-4"
+                        />
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setForm({ ...form, image: null });
+                          }}
+                          className="absolute top-2 right-2 p-1.5 bg-red-100 text-danger rounded-full hover:bg-red-200 transition-colors"
+                        >
+                          <X size={16} />
+                        </button>
+                        <p className="text-sm font-medium text-textDark truncate max-w-full px-4">{form.image.name}</p>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="w-14 h-14 bg-primary/10 rounded-full flex items-center justify-center">
+                          <Upload size={24} className="text-primary" />
+                        </div>
+                        <p className="font-medium text-textDark">Upload Photos</p>
+                        <p className="text-sm text-textMuted text-center">Drag &amp; drop or click to select (JPEG, PNG, up to 5MB)</p>
+                      </>
+                    )}
                     <input
                       id="file-input"
                       type="file"
                       accept="image/*"
                       className="hidden"
-                      onChange={(e) => setForm({ ...form, image: e.target.files[0] })}
+                      onChange={(e) => {
+                        if (e.target.files && e.target.files[0]) {
+                          setForm({ ...form, image: e.target.files[0] });
+                        }
+                      }}
                     />
                   </div>
-                  {form.image && (
-                    <p className="text-sm text-secondary flex items-center gap-2">
-                      <CheckCircle size={16} />
-                      {form.image.name} selected
-                    </p>
-                  )}
                   <p className="text-xs text-textMuted bg-gray-50 rounded-lg px-4 py-3">
                     📸 Items with photos get <strong>3x more responses</strong>. Add at least one clear photo.
                   </p>
@@ -321,6 +408,12 @@ const PostItem = () => {
                     <Info size={14} className="flex-shrink-0 mt-0.5" />
                     Your item will be reviewed by admins before going live. This typically takes less than 24 hours.
                   </div>
+                  {generalError && (
+                    <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-danger flex items-start gap-2 mt-4">
+                      <AlertCircle size={14} className="flex-shrink-0 mt-0.5" />
+                      {generalError}
+                    </div>
+                  )}
                 </div>
               )}
             </motion.div>

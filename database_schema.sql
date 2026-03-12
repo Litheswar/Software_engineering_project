@@ -1,185 +1,131 @@
--- ========================================================
--- EECShop: Idempotent Database Migration Script
--- Purpose: Safe to run multiple times in Supabase SQL Editor
--- Features: Items, Wishlist, Reports, Categories, Users
--- ========================================================
+-- EECShop Marketplace Schema
+-- This script is idempotent and safe to run multiple times.
 
--- ==========================================
--- 1. EXTENSIONS SETUP
--- ==========================================
+-- 1. EXTENSIONS & STORAGE
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- ==========================================
--- 2. USERS TABLE & SYNC
--- ==========================================
+-- 2. TABLES
 CREATE TABLE IF NOT EXISTS public.users (
-  id UUID REFERENCES auth.users NOT NULL PRIMARY KEY,
+  id UUID PRIMARY KEY REFERENCES auth.users(id),
   name TEXT NOT NULL,
   email TEXT NOT NULL,
   college TEXT,
   bio TEXT,
   avatar_url TEXT,
-  role TEXT DEFAULT 'user',
-  trust_score INTEGER DEFAULT 0,
+  role TEXT DEFAULT 'student',
+  trust_score NUMERIC DEFAULT 0,
   reputation_score INTEGER DEFAULT 0,
   listings_count INTEGER DEFAULT 0,
   sold_count INTEGER DEFAULT 0,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
--- Ensure incremental columns exist
-ALTER TABLE public.users ADD COLUMN IF NOT EXISTS bio TEXT;
-ALTER TABLE public.users ADD COLUMN IF NOT EXISTS avatar_url TEXT;
-ALTER TABLE public.users ADD COLUMN IF NOT EXISTS reputation_score INTEGER DEFAULT 0;
-ALTER TABLE public.users ADD COLUMN IF NOT EXISTS listings_count INTEGER DEFAULT 0;
-ALTER TABLE public.users ADD COLUMN IF NOT EXISTS sold_count INTEGER DEFAULT 0;
-
--- Role Constraint
-ALTER TABLE public.users DROP CONSTRAINT IF EXISTS users_role_check;
-ALTER TABLE public.users ADD CONSTRAINT users_role_check CHECK (role IN ('user', 'admin', 'moderator'));
-
--- RLS Enable
-ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
-
--- 2.1 USERS POLICIES (DROP THEN CREATE)
-DROP POLICY IF EXISTS "Public profiles are viewable by everyone" ON public.users;
-CREATE POLICY "Public profiles are viewable by everyone" ON public.users FOR SELECT USING (true);
-
-DROP POLICY IF EXISTS "Users can update their own profile" ON public.users;
-CREATE POLICY "Users can update their own profile" ON public.users FOR UPDATE 
-USING (auth.uid() = id) WITH CHECK (auth.uid() = id);
-
--- ==========================================
--- 3. CATEGORIES TABLE
--- ==========================================
 CREATE TABLE IF NOT EXISTS public.categories (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name TEXT NOT NULL UNIQUE,
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  name TEXT UNIQUE NOT NULL,
   icon TEXT,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
-ALTER TABLE public.categories ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "Categories are viewable by everyone" ON public.categories;
-CREATE POLICY "Categories are viewable by everyone" ON public.categories FOR SELECT USING (true);
-
--- Default Data
-INSERT INTO public.categories (name, icon) VALUES
-('Books', 'book'), ('Electronics', 'cpu'), ('Stationery', 'pen-tool'),
-('Lab Equipment', 'test-tube'), ('Furniture', 'sofa'), ('Clothing', 'shirt'),
-('Sports', 'activity'), ('Gaming', 'gamepad-2'), ('Toys', 'ghost'),
-('Collectibles', 'gem'), ('Art Supplies', 'palette'), ('Musical Instruments', 'music'),
-('Kitchen Items', 'utensils'), ('Other', 'more-horizontal')
-ON CONFLICT (name) DO NOTHING;
-
--- ==========================================
--- 4. ITEMS TABLE
--- ==========================================
 CREATE TABLE IF NOT EXISTS public.items (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  seller_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
   title TEXT NOT NULL,
   description TEXT,
-  price NUMERIC NOT NULL,
-  category TEXT REFERENCES public.categories(name),
-  condition TEXT,
+  price NUMERIC NOT NULL CHECK (price >= 0),
+  category TEXT NOT NULL REFERENCES public.categories(name),
+  condition TEXT NOT NULL,
   image_url TEXT,
-  seller_id UUID REFERENCES public.users(id) ON DELETE CASCADE NOT NULL,
-  status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'sold', 'rejected')),
+  images TEXT[] DEFAULT '{}',
+  status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected', 'sold')),
   views INTEGER DEFAULT 0,
   wishlist_count INTEGER DEFAULT 0,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+  location TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
-ALTER TABLE public.items ENABLE ROW LEVEL SECURITY;
-
--- 4.1 ITEMS POLICIES
-DROP POLICY IF EXISTS "Public can view approved items" ON public.items;
-CREATE POLICY "Public can view approved items" ON public.items FOR SELECT USING (status = 'approved');
-
-DROP POLICY IF EXISTS "Sellers can view all their own items" ON public.items;
-CREATE POLICY "Sellers can view all their own items" ON public.items FOR SELECT USING (auth.uid() = seller_id);
-
-DROP POLICY IF EXISTS "Users can post new items" ON public.items;
-CREATE POLICY "Users can post new items" ON public.items FOR INSERT WITH CHECK (auth.uid() = seller_id);
-
-DROP POLICY IF EXISTS "Sellers can update their own items" ON public.items;
-CREATE POLICY "Sellers can update their own items" ON public.items FOR UPDATE USING (auth.uid() = seller_id) WITH CHECK (auth.uid() = seller_id);
-
-DROP POLICY IF EXISTS "Sellers can delete their own items" ON public.items;
-CREATE POLICY "Sellers can delete their own items" ON public.items FOR DELETE USING (auth.uid() = seller_id);
-
--- ==========================================
--- 5. WISHLIST TABLE
--- ==========================================
 CREATE TABLE IF NOT EXISTS public.wishlist (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES public.users(id) ON DELETE CASCADE NOT NULL,
-  item_id UUID REFERENCES public.items(id) ON DELETE CASCADE NOT NULL,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+  item_id UUID NOT NULL REFERENCES public.items(id) ON DELETE CASCADE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
   UNIQUE(user_id, item_id)
 );
 
-ALTER TABLE public.wishlist ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "Users can manage their own wishlist" ON public.wishlist;
-CREATE POLICY "Users can manage their own wishlist" ON public.wishlist FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
-
--- ==========================================
--- 6. REPORTS TABLE
--- ==========================================
 CREATE TABLE IF NOT EXISTS public.reports (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  item_id UUID REFERENCES public.items(id) ON DELETE CASCADE NOT NULL,
-  reporter_id UUID REFERENCES public.users(id) ON DELETE SET NULL,
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  item_id UUID NOT NULL REFERENCES public.items(id) ON DELETE CASCADE,
+  reporter_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
   reason TEXT NOT NULL,
-  description TEXT,
-  status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'reviewed', 'resolved')),
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+  status TEXT DEFAULT 'pending',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
-ALTER TABLE public.reports ENABLE ROW LEVEL SECURITY;
+-- 3. RLS POLICIES (Idempotent)
 
-DROP POLICY IF EXISTS "Users can create reports" ON public.reports;
-CREATE POLICY "Users can create reports" ON public.reports FOR INSERT WITH CHECK (auth.uid() = reporter_id);
+-- Users Table
+ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 
-DROP POLICY IF EXISTS "Users can view their own reports" ON public.reports;
-CREATE POLICY "Users can view their own reports" ON public.reports FOR SELECT USING (auth.uid() = reporter_id);
+DO $$ BEGIN
+  DROP POLICY IF EXISTS "Public profiles are viewable by everyone" ON public.users;
+  CREATE POLICY "Public profiles are viewable by everyone" ON public.users FOR SELECT USING (true);
 
--- ==========================================
--- 7. PERFORMANCE INDEXES
--- ==========================================
-CREATE INDEX IF NOT EXISTS idx_items_status ON public.items(status);
-CREATE INDEX IF NOT EXISTS idx_items_created_at ON public.items(created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_items_seller ON public.items(seller_id);
-CREATE INDEX IF NOT EXISTS idx_wishlist_user ON public.wishlist(user_id);
-CREATE INDEX IF NOT EXISTS idx_reports_status ON public.reports(status);
+  DROP POLICY IF EXISTS "Users can update own profile" ON public.users;
+  CREATE POLICY "Users can update own profile" ON public.users FOR UPDATE USING (auth.uid() = id);
 
--- ==========================================
--- 8. TRIGGER: AUTH -> PUBLIC.USERS
--- ==========================================
-CREATE OR REPLACE FUNCTION public.handle_new_user()
-RETURNS TRIGGER AS $$
-BEGIN
-  INSERT INTO public.users (id, name, email, college, role)
-  VALUES (
-    new.id, 
-    COALESCE(new.raw_user_meta_data->>'name', 'User'), 
-    new.email, 
-    COALESCE(new.raw_user_meta_data->>'college', 'Unknown'),
-    'user'
-  )
-  ON CONFLICT (id) DO NOTHING;
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+  DROP POLICY IF EXISTS "System can create user profiles" ON public.users;
+  CREATE POLICY "System can create user profiles" ON public.users FOR INSERT WITH CHECK (true);
+END $$;
 
-DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
-CREATE TRIGGER on_auth_user_created
-  AFTER INSERT ON auth.users
-  FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
+-- Categories Table
+ALTER TABLE public.categories ENABLE ROW LEVEL SECURITY;
 
--- ==========================================
--- 9. SCHEMA REFRESH (CRITICAL)
--- ==========================================
-NOTIFY pgrst, 'reload schema';
+DO $$ BEGIN
+  DROP POLICY IF EXISTS "Categories are viewable by everyone" ON public.categories;
+  CREATE POLICY "Categories are viewable by everyone" ON public.categories FOR SELECT USING (true);
+  
+  DROP POLICY IF EXISTS "Only admins can manage categories" ON public.categories;
+  CREATE POLICY "Only admins can manage categories" ON public.categories FOR ALL USING (
+    EXISTS (SELECT 1 FROM public.users WHERE id = auth.uid() AND role = 'admin')
+  );
+END $$;
+
+-- Items Table
+ALTER TABLE public.items ENABLE ROW LEVEL SECURITY;
+
+DO $$ BEGIN
+  DROP POLICY IF EXISTS "Approved items are viewable by everyone" ON public.items;
+  CREATE POLICY "Approved items are viewable by everyone" ON public.items FOR SELECT USING (status = 'approved' OR status = 'sold' OR seller_id = auth.uid());
+
+  DROP POLICY IF EXISTS "Users can insert their own items" ON public.items;
+  CREATE POLICY "Users can insert their own items" ON public.items FOR INSERT WITH CHECK (auth.uid() = seller_id);
+
+  DROP POLICY IF EXISTS "Users can update their own items" ON public.items;
+  CREATE POLICY "Users can update their own items" ON public.items FOR UPDATE USING (auth.uid() = seller_id);
+
+  DROP POLICY IF EXISTS "Users can delete their own items" ON public.items;
+  CREATE POLICY "Users can delete their own items" ON public.items FOR DELETE USING (auth.uid() = seller_id);
+END $$;
+
+-- Wishlist Table
+ALTER TABLE public.wishlist ENABLE ROW LEVEL SECURITY;
+
+DO $$ BEGIN
+  DROP POLICY IF EXISTS "Users can manage their own wishlist" ON public.wishlist;
+  CREATE POLICY "Users can manage their own wishlist" ON public.wishlist FOR ALL USING (auth.uid() = user_id);
+END $$;
+
+-- 4. TRIGGERS & FUNCTIONS (Optionally re-create if needed)
+
+-- Initial Categories
+INSERT INTO public.categories (name, icon)
+VALUES 
+  ('Electronics', 'Smartphone'),
+  ('Books', 'Book'),
+  ('Furniture', 'Home'),
+  ('Clothing', 'Shirt'),
+  ('Academics', 'GraduationCap'),
+  ('Sports', 'Dribbble'),
+  ('Other', 'MoreHorizontal')
+ON CONFLICT (name) DO NOTHING;

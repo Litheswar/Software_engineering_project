@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
+import toast from 'react-hot-toast'
 
 export function useMarketplace() {
   const [items, setItems] = useState([])
@@ -12,29 +13,21 @@ export function useMarketplace() {
     recent: false,
     trending: false
   })
-  const [errors, setErrors] = useState({})
 
-  // Fetch Categories
   const fetchCategories = useCallback(async () => {
     setLoading(prev => ({ ...prev, categories: true }))
     try {
-      const { data, error } = await supabase
-        .from('categories')
-        .select('*')
-        .order('name')
-      
+      const { data, error } = await supabase.from('categories').select('*').order('name')
       if (error) throw error
       setCategories(data || [])
     } catch (err) {
-      console.error("Error fetching categories:", err)
-      setErrors(prev => ({ ...prev, categories: err.message }))
+      console.error('Error fetching categories:', err)
     } finally {
       setLoading(prev => ({ ...prev, categories: false }))
     }
   }, [])
 
-  // Fetch Trending Items
-  const fetchTrending = useCallback(async (limit = 4) => {
+  const fetchTrending = useCallback(async () => {
     setLoading(prev => ({ ...prev, trending: true }))
     try {
       const { data, error } = await supabase
@@ -42,19 +35,16 @@ export function useMarketplace() {
         .select('*, seller:users(name, trust_score)')
         .eq('status', 'approved')
         .order('views', { ascending: false })
-        .limit(limit)
-
+        .limit(4)
       if (error) throw error
       setTrending(data || [])
     } catch (err) {
-      console.error("Error fetching trending items:", err)
-      setErrors(prev => ({ ...prev, trending: err.message }))
+      console.error('Error fetching trending items:', err)
     } finally {
       setLoading(prev => ({ ...prev, trending: false }))
     }
   }, [])
 
-  // Fetch Recently Viewed Items from IDs
   const fetchRecentItems = useCallback(async () => {
     const storedIds = JSON.parse(localStorage.getItem('recent_views') || '[]')
     if (storedIds.length === 0) {
@@ -67,32 +57,49 @@ export function useMarketplace() {
       const { data, error } = await supabase
         .from('items')
         .select('*, seller:users(name, trust_score)')
-        .in('id', storedIds.slice(0, 10))
+        .in('id', storedIds.slice(0, 6))
       
       if (error) throw error
-
-      // Sort by the order in storedIds
+      
+      // Sort to match original access order
       const sorted = storedIds
-        .map(id => data.find(item => item.id === id))
+        .map(id => data?.find(item => item.id === id))
         .filter(Boolean)
-
+      
       setRecentViewed(sorted)
     } catch (err) {
-      console.error("Error fetching recent items:", err)
-      setErrors(prev => ({ ...prev, recent: err.message }))
+      console.error('Error fetching recent items:', err)
     } finally {
       setLoading(prev => ({ ...prev, recent: false }))
     }
   }, [])
 
-  // Fetch Filtered Items
+  const fetchLatestItems = useCallback(async () => {
+    setLoading(prev => ({ ...prev, items: true }))
+    try {
+      const { data, error } = await supabase
+        .from('items')
+        .select('*, seller:users(name, trust_score)')
+        .eq('status', 'approved')
+        .order('created_at', { ascending: false })
+        .limit(4)
+      if (error) throw error
+      return data || []
+    } catch (err) {
+      console.error('Error fetching latest items:', err)
+      return []
+    } finally {
+      setLoading(prev => ({ ...prev, items: false }))
+    }
+  }, [])
+
   const fetchItems = useCallback(async (options = {}) => {
-    const { 
-      search = '', 
-      category = '', 
-      condition = '', 
-      minPrice = '', 
-      maxPrice = '', 
+    const {
+      search = '',
+      category = '',
+      condition = '',
+      minPrice = '',
+      maxPrice = '',
       sort = 'newest',
       page = 1,
       perPage = 8
@@ -124,11 +131,11 @@ export function useMarketplace() {
 
       const { data, count, error } = await query
       if (error) throw error
-
+      
       return { data: data || [], count: count || 0 }
     } catch (err) {
-      console.error("Error fetching items:", err)
-      setErrors(prev => ({ ...prev, items: err.message }))
+      toast.error('Failed to load items')
+      console.error('Error fetching items:', err)
       return { data: [], count: 0 }
     } finally {
       setLoading(prev => ({ ...prev, items: false }))
@@ -141,10 +148,10 @@ export function useMarketplace() {
     recentViewed,
     trending,
     loading,
-    errors,
     fetchCategories,
     fetchTrending,
     fetchRecentItems,
+    fetchLatestItems,
     fetchItems
   }
 }

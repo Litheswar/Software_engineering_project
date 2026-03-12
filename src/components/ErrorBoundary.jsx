@@ -1,5 +1,4 @@
 import React from 'react'
-import { AlertTriangle, RefreshCw } from 'lucide-react'
 
 export default class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -17,46 +16,34 @@ export default class ErrorBoundary extends React.Component {
 
   render() {
     if (this.state.hasError) {
-      if (this.props.fallback) return this.props.fallback
-
       return (
         <div style={{
-          padding: '40px 20px',
-          textAlign: 'center',
-          background: '#FFF5F5',
-          borderRadius: 16,
+          padding: '24px',
+          background: '#FEF2F2',
           border: '1px solid #FECACA',
+          borderRadius: '16px',
+          textAlign: 'center',
           margin: '20px 0'
         }}>
-          <AlertTriangle size={48} color="#EF4444" style={{ margin: '0 auto 16px' }} />
-          <h3 style={{ fontSize: 18, fontWeight: 700, color: '#991B1B', marginBottom: 8 }}>
-            Something went wrong
-          </h3>
-          <p style={{ color: '#B91C1C', fontSize: 14, marginBottom: 20, maxWidth: 400, margin: '0 auto 20px' }}>
-            We encountered an error while loading this section. Please try refreshing the page.
+          <div style={{ fontSize: '40px', marginBottom: '12px' }}>⚠️</div>
+          <h3 style={{ color: '#991B1B', fontWeight: 800, margin: '0 0 8px' }}>Something went wrong</h3>
+          <p style={{ color: '#B91C1C', fontSize: '14px', marginBottom: '16px' }}>
+            There was an error loading this section.
           </p>
           <button 
             onClick={() => window.location.reload()}
-            className="btn-primary"
-            style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '0 auto', background: '#EF4444' }}
+            style={{
+              padding: '8px 16px',
+              background: '#EF4444',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '8px',
+              fontWeight: 600,
+              cursor: 'pointer'
+            }}
           >
-            <RefreshCw size={16} /> Reload Page
+            Reload Page
           </button>
-          
-          {process.env.NODE_ENV === 'development' && (
-            <pre style={{ 
-              marginTop: 20, 
-              padding: 12, 
-              background: '#fff', 
-              borderRadius: 8, 
-              fontSize: 12, 
-              color: '#6B7280', 
-              textAlign: 'left',
-              overflowX: 'auto'
-            }}>
-              {this.state.error?.toString()}
-            </pre>
-          )}
         </div>
       )
     }

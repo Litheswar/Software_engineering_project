@@ -1,178 +1,190 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-import { supabase } from '../lib/supabase'
 import Navbar from '../components/Navbar'
 import PageWrapper from '../components/PageWrapper'
-import ImageUploader from '../components/ImageUploader'
-import { ArrowLeft, Save, Trash2, Loader, Info } from 'lucide-react'
+import GoBack from '../components/GoBack'
+import { supabase } from '../lib/supabase'
 import toast from 'react-hot-toast'
-
-const CONDITIONS = ['New', 'Like New', 'Good', 'Fair', 'Poor']
+import { Camera, Tag, Clock, Package, Save, Trash2, ArrowLeft } from 'lucide-react'
 
 export default function EditItem() {
-  const { id }   = useParams()
+  const { id } = useParams()
   const navigate = useNavigate()
   const { user } = useAuth()
   
-  const [loading, setLoading]     = useState(true)
-  const [saving, setSaving]       = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
   const [categories, setCategories] = useState([])
-  const [form, setForm]           = useState({ title:'', category:'', price:'', condition:'', description:'' })
-  const [imageUrl, setImageUrl]   = useState('')
-  const [newImages, setNewImages] = useState([])
+  const [formData, setFormData] = useState({
+    title: '',
+    price: '',
+    description: '',
+    category: '',
+    condition: '',
+    image_url: ''
+  })
 
   useEffect(() => {
-    async function fetchData() {
-      setLoading(true)
+    async function init() {
+      // Fetch categories
+      const { data: catData } = await supabase.from('categories').select('*').order('name')
+      if (catData) setCategories(catData)
+
       // Fetch item
-      const { data: item } = await supabase.from('items').select('*').eq('id', id).single()
-      if (item) {
-        if (item.seller_id !== user?.id) {
-          toast.error('Unauthorized')
-          navigate('/activity')
-          return
-        }
-        setForm({
-          title: item.title,
-          category: item.category,
-          price: item.price,
-          condition: item.condition,
-          description: item.description
-        })
-        setImageUrl(item.image_url)
-      } else {
+      const { data, error } = await supabase
+        .from('items')
+        .select('*')
+        .eq('id', id)
+        .single()
+      
+      if (error || !data) {
         toast.error('Item not found')
         navigate('/activity')
+        return
       }
 
-      // Fetch categories
-      const { data: cats } = await supabase.from('categories').select('name').order('name')
-      if (cats) setCategories(cats.map(c => c.name))
+      if (data.seller_id !== user?.id) {
+        toast.error('Unauthorized')
+        navigate('/activity')
+        return
+      }
+
+      setFormData({
+        title: data.title,
+        price: data.price,
+        description: data.description,
+        category: data.category,
+        condition: data.condition,
+        image_url: data.image_url
+      })
       setLoading(false)
     }
-    if (user) fetchData()
+    if (user) init()
   }, [id, user, navigate])
 
-  const setField = (k) => (e) => setForm(p => ({ ...p, [k]: e.target.value }))
-
-  async function handleSave(e) {
+  const handleSave = async (e) => {
     e.preventDefault()
     setSaving(true)
-    try {
-      let finalImageUrl = imageUrl
-
-      // Upload new image if provided
-      if (newImages.length > 0) {
-        const file = newImages[0].file
-        const fileExt = file.name.split('.').pop()
-        const fileName = `${Math.random()}.${fileExt}`
-        const filePath = `${user.id}/${fileName}`
-
-        const { error: uploadError } = await supabase.storage
-          .from('items-images')
-          .upload(filePath, file)
-
-        if (uploadError) throw uploadError
-
-        const { data: { publicUrl } } = supabase.storage
-          .from('items-images')
-          .getPublicUrl(filePath)
-        
-        finalImageUrl = publicUrl
-      }
-
-      const { error } = await supabase
-        .from('items')
-        .update({
-          ...form,
-          price: Number(form.price),
-          image_url: finalImageUrl,
-          status: 'pending' // Re-verify on edit
-        })
-        .eq('id', id)
-
-      if (error) throw error
-      toast.success('Listing updated! Sent for re-approval.')
+    
+    const { error } = await supabase
+      .from('items')
+      .update({
+        ...formData,
+        price: Number(formData.price),
+        updated_at: new Date()
+      })
+      .eq('id', id)
+    
+    if (!error) {
+      toast.success('Listing updated! ✨')
       navigate('/activity')
-    } catch (e) {
-      toast.error(e.message || 'Failed to update')
-    } finally {
-      setSaving(false)
+    } else {
+      toast.error('Failed to update: ' + error.message)
     }
+    setSaving(false)
   }
 
-  if (loading) return <PageWrapper><Navbar/><div style={{textAlign:'center',padding:40}}><Loader className="spin" /></div></PageWrapper>
+  if (loading) return (
+    <PageWrapper>
+      <Navbar />
+      <div style={{ maxWidth: 800, margin: '100px auto', textAlign: 'center' }}>
+        <p>Loading your listing...</p>
+      </div>
+    </PageWrapper>
+  )
 
   return (
     <PageWrapper>
       <Navbar />
-      <div style={{maxWidth:800,margin:'0 auto',padding:'24px 24px 60px'}}>
-        <button onClick={()=>navigate(-1)} style={{display:'flex',alignItems:'center',gap:8,background:'none',border:'none',color:'#6B7280',cursor:'pointer',marginBottom:24,fontSize:14,fontWeight:600}}>
-          <ArrowLeft size={16}/> Back to Activity
-        </button>
+      <div style={{ maxWidth: 800, margin: '0 auto', padding: '24px 24px 80px' }}>
+        <GoBack />
+        <div style={{ background: '#fff', borderRadius: 24, padding: 40, border: '1px solid #F1F5F9', boxShadow: '0 10px 30px rgba(0,0,0,0.04)' }}>
+          <h1 style={{ fontSize: 28, fontWeight: 800, color: '#1F2937', marginBottom: 8 }}>Edit Listing</h1>
+          <p style={{ color: '#6B7280', marginBottom: 32 }}>Update your item details or price.</p>
 
-        <div style={{background:'#fff',borderRadius:20,border:'1px solid #E2E8F0',boxShadow:'0 4px 20px rgba(0,0,0,0.05)',overflow:'hidden'}}>
-          <div style={{padding:'24px 32px',borderBottom:'1px solid #F1F5F9',background:'#F8FAFC'}}>
-            <h1 style={{fontSize:22,fontWeight:800,color:'#1F2937'}}>Edit Listing</h1>
-            <p style={{fontSize:14,color:'#6B7280',margin:'4px 0 0'}}>Update your item details. Edits require re-approval.</p>
-          </div>
-
-          <form onSubmit={handleSave} style={{padding:32,display:'flex',flexDirection:'column',gap:24}}>
-            <div>
-              <label style={{fontSize:14,fontWeight:600,color:'#374151',display:'block',marginBottom:8}}>Title</label>
-              <input value={form.title} onChange={setField('title')} className="input-field" required />
+          <form onSubmit={handleSave} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
+            {/* Title */}
+            <div style={{ gridColumn: '1 / -1' }}>
+              <label style={{ display: 'block', paddingBottom: 8, fontSize: 13, fontWeight: 700, color: '#4B5563', textTransform: 'uppercase' }}>Item Title</label>
+              <input 
+                required
+                value={formData.title} 
+                onChange={e => setFormData(p => ({ ...p, title: e.target.value }))}
+                placeholder="What are you selling?"
+                className="input-field"
+              />
             </div>
 
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:20}}>
-              <div>
-                <label style={{fontSize:14,fontWeight:600,color:'#374151',display:'block',marginBottom:8}}>Category</label>
-                <select value={form.category} onChange={setField('category')} className="input-field" required>
-                  {categories.map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
-              </div>
-              <div>
-                <label style={{fontSize:14,fontWeight:600,color:'#374151',display:'block',marginBottom:8}}>Price (₹)</label>
-                <input type="number" value={form.price} onChange={setField('price')} className="input-field" required />
-              </div>
+            {/* Price */}
+            <div>
+              <label style={{ display: 'block', paddingBottom: 8, fontSize: 13, fontWeight: 700, color: '#4B5563', textTransform: 'uppercase' }}>Price (₹)</label>
+              <input 
+                required
+                type="number"
+                value={formData.price} 
+                onChange={e => setFormData(p => ({ ...p, price: e.target.value }))}
+                placeholder="0.00"
+                className="input-field"
+              />
             </div>
 
+            {/* Category */}
             <div>
-              <label style={{fontSize:14,fontWeight:600,color:'#374151',display:'block',marginBottom:8}}>Condition</label>
-              <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
-                {CONDITIONS.map(c => (
-                  <button key={c} type="button" onClick={() => setForm(p=>({...p,condition:c}))} style={{
-                    padding:'8px 16px',borderRadius:12,border:'2px solid',
-                    fontSize:13,fontWeight:600,cursor:'pointer',transition:'all 0.2s',
-                    borderColor: form.condition===c?'#2563EB':'#E2E8F0',
-                    background: form.condition===c?'#EFF6FF':'#fff',
-                    color: form.condition===c?'#2563EB':'#6B7280'
-                  }}>{c}</button>
-                ))}
-              </div>
+              <label style={{ display: 'block', paddingBottom: 8, fontSize: 13, fontWeight: 700, color: '#4B5563', textTransform: 'uppercase' }}>Category</label>
+              <select 
+                value={formData.category} 
+                onChange={e => setFormData(p => ({ ...p, category: e.target.value }))}
+                className="input-field"
+              >
+                {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+              </select>
             </div>
 
+            {/* Condition */}
             <div>
-              <label style={{fontSize:14,fontWeight:600,color:'#374151',display:'block',marginBottom:8}}>Description</label>
-              <textarea value={form.description} onChange={setField('description')} rows={4} className="input-field" style={{resize:'vertical'}} required />
+              <label style={{ display: 'block', paddingBottom: 8, fontSize: 13, fontWeight: 700, color: '#4B5563', textTransform: 'uppercase' }}>Condition</label>
+              <select 
+                value={formData.condition} 
+                onChange={e => setFormData(p => ({ ...p, condition: e.target.value }))}
+                className="input-field"
+              >
+                <option value="Like New">Like New</option>
+                <option value="Good">Good</option>
+                <option value="Fair">Fair</option>
+                <option value="Poor">Poor</option>
+              </select>
             </div>
 
-            <div>
-              <label style={{fontSize:14,fontWeight:600,color:'#374151',display:'block',marginBottom:8}}>Update Image (Optional)</label>
-              {imageUrl && !newImages.length && (
-                <div style={{marginBottom:12,position:'relative',width:120,height:120,borderRadius:12,overflow:'hidden',border:'2px solid #E2E8F0'}}>
-                  <img src={imageUrl} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}} />
-                  <div style={{position:'absolute',bottom:0,left:0,right:0,background:'rgba(0,0,0,0.5)',color:'#fff',fontSize:10,textAlign:'center',padding:2}}>Current</div>
+            {/* Image Preview */}
+            <div style={{ gridRow: 'span 2' }}>
+              <label style={{ display: 'block', paddingBottom: 8, fontSize: 13, fontWeight: 700, color: '#4B5563', textTransform: 'uppercase' }}>Item Image</label>
+              <div style={{ position: 'relative', borderRadius: 16, overflow: 'hidden', border: '2px dashed #E2E8F0', aspectRatio: '1/1', background: '#F8FAFC' }}>
+                <img src={formData.image_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.4)', opacity: 0, transition: '0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onMouseEnter={e => e.currentTarget.style.opacity = 1} onMouseLeave={e => e.currentTarget.style.opacity = 0}>
+                   <button type="button" className="btn-secondary" style={{ padding: '8px 16px' }}><Camera size={16}/> Change</button>
                 </div>
-              )}
-              <ImageUploader images={newImages} onChange={setNewImages} maxImages={1} />
+              </div>
             </div>
 
-            <div style={{display:'flex',gap:12,marginTop:12,paddingTop:24,borderTop:'1px solid #F1F5F9'}}>
-              <button type="button" onClick={()=>navigate('/activity')} className="btn-secondary" style={{flex:1,justifyContent:'center'}}>Cancel</button>
-              <button type="submit" className="btn-primary" style={{flex:2,justifyContent:'center'}} disabled={saving}>
-                {saving ? <Loader className="spin" size={18}/> : <Save size={18}/>}
-                {saving ? 'Saving...' : 'Save Changes'}
+            {/* Description */}
+            <div style={{ gridColumn: '1 / -1' }}>
+              <label style={{ display: 'block', paddingBottom: 8, fontSize: 13, fontWeight: 700, color: '#4B5563', textTransform: 'uppercase' }}>Description</label>
+              <textarea 
+                required
+                value={formData.description} 
+                onChange={e => setFormData(p => ({ ...p, description: e.target.value }))}
+                placeholder="Describe your item... (Min 20 chars)"
+                rows={5}
+                className="input-field"
+                style={{ resize: 'vertical' }}
+              />
+            </div>
+
+            <div style={{ gridColumn: '1 / -1', display: 'flex', gap: 16, marginTop: 12 }}>
+              <button type="button" onClick={() => navigate('/activity')} className="btn-secondary" style={{ flex: 1, justifyContent: 'center' }}>Cancel</button>
+              <button type="submit" disabled={saving} className="btn-primary" style={{ flex: 2, justifyContent: 'center' }}>
+                <Save size={18}/> {saving ? 'Updating...' : 'Save Changes'}
               </button>
             </div>
           </form>

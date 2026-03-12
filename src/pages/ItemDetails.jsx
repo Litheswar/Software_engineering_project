@@ -7,6 +7,18 @@ import PageWrapper from '../components/PageWrapper'
 import ModalDialog from '../components/ModalDialog'
 import GoBack from '../components/GoBack'
 import { supabase } from '../lib/supabase'
+import toast from 'react-hot-toast'
+import { 
+  Heart, MessageCircle, Flag, Shield, 
+  CheckCircle, Star, Calendar, Tag
+} from 'lucide-react'
+
+const conditionColors = {
+  'New': { bg: '#DCFCE7', color: '#15803D' },
+  'Like New': { bg: '#DBEAFE', color: '#1D4ED8' },
+  'Good': { bg: '#FEF9C3', color: '#854D0E' },
+  'Fair': { bg: '#FFEDD5', color: '#9A3412' }
+}
 
 export default function ItemDetails() {
   const { id }   = useParams()
@@ -21,6 +33,7 @@ export default function ItemDetails() {
   const [contactOpen, setContactOpen] = useState(false)
   const [message, setMessage] = useState('')
   const [pricePulse, setPricePulse] = useState(false)
+  const [similarItems, setSimilarItems] = useState([])
 
   useEffect(() => {
     async function fetchItemDetails() {
@@ -33,6 +46,16 @@ export default function ItemDetails() {
       
       if (data) {
         setItem(data)
+        
+        // Fetch similar items
+        const { data: similar } = await supabase
+          .from('items')
+          .select('*')
+          .eq('category', data.category)
+          .neq('id', data.id)
+          .limit(4)
+        setSimilarItems(similar || [])
+
         // Store in recently viewed
         try {
           let stored = JSON.parse(localStorage.getItem('recent_views') || '[]')
@@ -239,7 +262,7 @@ export default function ItemDetails() {
             </div>
 
             {/* Seller Box */}
-            <div style={{background:'#fff',borderRadius:16,padding:20,border:'2px solid #E2E8F0',boxShadow:'0 4px 12px rgba(0,0,0,0.06)'}}>
+            <div style={{background:'#fff',borderRadius:16,padding:20,border:'2px solid #E2E8F0',boxShadow:'0 4px 12px rgba(0,0,0,0.06)', marginBottom: 24}}>
               <p style={{fontSize:12,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em',color:'#6B7280',marginBottom:14}}>Seller Information</p>
               <div style={{display:'flex',alignItems:'center',gap:12}}>
                 <div style={{width:46,height:46,borderRadius:'50%',background:'linear-gradient(135deg,#2563EB,#1D4ED8)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,color:'#fff',fontWeight:700,flexShrink:0}}>
@@ -270,8 +293,42 @@ export default function ItemDetails() {
                 </div>
               </div>
             </div>
+
+            {/* Safety Tips */}
+            <div style={{ background: '#F0F9FF', border: '1px solid #E0F2FE', borderRadius: 16, padding: 20 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, color: '#0369A1' }}>
+                <Shield size={18} />
+                <h3 style={{ fontSize: 14, fontWeight: 700, margin: 0 }}>Campus Safety Tips</h3>
+              </div>
+              <ul style={{ margin: 0, paddingLeft: 20, fontSize: 13, color: '#0C4A6E', lineHeight: 1.6 }}>
+                <li>Meet in public areas like the library or student center.</li>
+                <li>Inspect the item thoroughly before paying.</li>
+                <li>Use digital payments for record-keeping.</li>
+              </ul>
+            </div>
           </div>
         </div>
+
+        {/* Similar Items */}
+        {similarItems.length > 0 && (
+          <div style={{ marginTop: 60 }}>
+            <h2 style={{ fontSize: 22, fontWeight: 800, color: '#1F2937', marginBottom: 20 }}>Similar Items</h2>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 20 }}>
+              {similarItems.map(sItem => (
+                <div key={sItem.id} onClick={() => navigate(`/item/${sItem.id}`)} style={{ 
+                  background: '#fff', borderRadius: 16, overflow: 'hidden', border: '1px solid #F1F5F9',
+                  cursor: 'pointer', transition: 'transform 0.2s', boxShadow: '0 4px 12px rgba(0,0,0,0.03)'
+                }} onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-4px)'} onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}>
+                  <img src={sItem.image_url} alt="" style={{ width: '100%', height: 160, objectFit: 'cover' }} />
+                  <div style={{ padding: 12 }}>
+                    <h4 style={{ fontSize: 14, fontWeight: 600, margin: '0 0 4px', color: '#1F2937' }}>{sItem.title}</h4>
+                    <p style={{ fontSize: 16, fontWeight: 800, color: '#2563EB', margin: 0 }}>₹{sItem.price}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Contact Modal */}

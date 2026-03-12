@@ -10,6 +10,7 @@ import SellItem   from './pages/SellItem'
 import Activity   from './pages/Activity'
 import Profile    from './pages/Profile'
 import AdminPanel from './pages/AdminPanel'
+import EditItem   from './pages/EditItem'
 import MobileNav  from './components/MobileNav'
 
 function ProtectedRoute({ children }) {
@@ -42,6 +43,7 @@ function AnimatedRoutes() {
         <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
         <Route path="/item/:id"  element={<ItemDetails />} />
         <Route path="/sell"      element={<ProtectedRoute><SellItem /></ProtectedRoute>} />
+        <Route path="/edit-item/:id" element={<ProtectedRoute><EditItem /></ProtectedRoute>} />
         <Route path="/activity"  element={<ProtectedRoute><Activity /></ProtectedRoute>} />
         <Route path="/profile"   element={<ProtectedRoute><Profile /></ProtectedRoute>} />
         <Route path="/admin"     element={<AdminRoute><AdminPanel /></AdminRoute>} />

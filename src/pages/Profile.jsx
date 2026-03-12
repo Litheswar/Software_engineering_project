@@ -13,6 +13,7 @@ import {
   Clock, Heart, ShoppingBag, Plus
 } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { supabase } from '../lib/supabase'
 
 export default function Profile() {
   const { user, profile, updateProfile, isAdmin } = useAuth()
@@ -133,6 +134,9 @@ export default function Profile() {
                 <span style={{ background: '#DCFCE7', color: '#15803D', padding: '4px 12px', borderRadius: 999, fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4 }}>
                   <CheckCircle size={14}/> Verified Student
                 </span>
+                <span style={{ background: '#FEF9C3', color: '#854D0E', padding: '4px 12px', borderRadius: 999, fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <Clock size={14}/> Member since {new Date(displayUser.created_at || Date.now()).getFullYear()}
+                </span>
                 {isAdmin && (
                   <span style={{ background: '#DBEAFE', color: '#1D4ED8', padding: '4px 12px', borderRadius: 999, fontSize: 12, fontWeight: 700 }}>Admin Account</span>
                 )}
@@ -248,6 +252,24 @@ export default function Profile() {
                     <Heart size={24} color="#EF4444" style={{ margin: '0 auto 12px' }} />
                     <span style={{ fontSize: 24, fontWeight: 800, color: '#1F2937', display: 'block' }}>{stats.sold}</span>
                     <span style={{ fontSize: 13, color: '#6B7280', fontWeight: 600 }}>Items Sold</span>
+                  </div>
+                </div>
+
+                <div style={{ marginTop: 24, marginBottom: 24 }}>
+                  <h4 style={{ fontSize: 14, fontWeight: 700, color: '#6B7280', marginBottom: 16, textTransform: 'uppercase' }}>Community Badges</h4>
+                  <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                    {[
+                      { icon: <Award size={16}/>, label: 'Fast Responder', color: '#7C3AED', bg: '#F5F3FF' },
+                      { icon: <Shield size={16}/>, label: 'Fair Trader', color: '#10B981', bg: '#ECFDF5' },
+                      { icon: <CheckCircle size={16}/>, label: 'Email Verified', color: '#2563EB', bg: '#EFF6FF' }
+                    ].map((badge, i) => (
+                      <div key={i} style={{ 
+                        display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', 
+                        background: badge.bg, color: badge.color, borderRadius: 12, fontSize: 12, fontWeight: 700
+                      }}>
+                        {badge.icon} {badge.label}
+                      </div>
+                    ))}
                   </div>
                 </div>
 

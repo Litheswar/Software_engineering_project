@@ -1,7 +1,14 @@
 import { useState } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
+import toast from 'react-hot-toast'
+import { 
+  Search, ShoppingBag, Bell, User, ChevronDown, 
+  LogOut, Plus, Activity as ActivityIcon, TrendingUp,
+  History, Menu, X, Shield
+} from 'lucide-react'
 
 export default function Navbar({ onSearch }) {
   const { user, profile, signOut, isAdmin } = useAuth()

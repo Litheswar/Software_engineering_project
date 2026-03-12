@@ -138,8 +138,22 @@ export default function Activity() {
       </AnimatePresence>
 
       <div style={{maxWidth:1100,margin:'0 auto',padding:'24px 24px 60px'}}>
-        <GoBack />
-        <h1 style={{fontSize:24,fontWeight:800,color:'#1F2937',marginBottom:24,marginTop:8}}>My Activity</h1>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32, marginTop: 8 }}>
+          <div>
+            <h1 style={{ fontSize: 28, fontWeight: 800, color: '#1F2937', margin: 0 }}>My Activity</h1>
+            <p style={{ color: '#6B7280', fontSize: 14, marginTop: 4 }}>Manage your listings, chat requests, and wishlist.</p>
+          </div>
+          <div style={{ display: 'flex', gap: 12 }}>
+            <div style={{ background: '#F0F9FF', padding: '12px 20px', borderRadius: 16, border: '1px solid #E0F2FE', textAlign: 'center' }}>
+              <span style={{ display: 'block', fontSize: 20, fontWeight: 800, color: '#0369A1' }}>{myListings.length}</span>
+              <span style={{ fontSize: 11, fontWeight: 700, color: '#0EA5E9', textTransform: 'uppercase' }}>Listings</span>
+            </div>
+            <div style={{ background: '#F0FDF4', padding: '12px 20px', borderRadius: 16, border: '1px solid #DCFCE7', textAlign: 'center' }}>
+              <span style={{ display: 'block', fontSize: 20, fontWeight: 800, color: '#15803D' }}>{myListings.filter(i => i.status === 'sold').length}</span>
+              <span style={{ fontSize: 11, fontWeight: 700, color: '#16A34A', textTransform: 'uppercase' }}>Sold</span>
+            </div>
+          </div>
+        </div>
 
         {/* Tabs */}
         <div style={{display:'flex',gap:4,borderBottom:'2px solid #E2E8F0',marginBottom:28,overflowX:'auto',paddingBottom:0}}>

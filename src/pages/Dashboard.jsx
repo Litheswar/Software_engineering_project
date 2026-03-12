@@ -28,6 +28,7 @@ export default function Dashboard() {
     fetchCategories,
     fetchTrending,
     fetchRecentItems,
+    fetchLatestItems,
     fetchItems
   } = useMarketplace()
 
@@ -37,12 +38,15 @@ export default function Dashboard() {
   const [page, setPage]         = useState(1)
   const [totalCount, setTotalCount] = useState(0)
 
+  const [latestItems, setLatestItems] = useState([])
+
   // Initial data load
   useEffect(() => {
     fetchCategories()
     fetchTrending()
     fetchRecentItems()
-  }, [fetchCategories, fetchTrending, fetchRecentItems])
+    fetchLatestItems().then(setLatestItems)
+  }, [fetchCategories, fetchTrending, fetchRecentItems, fetchLatestItems])
 
   // Fetch filtered items
   useEffect(() => {
@@ -80,11 +84,51 @@ export default function Dashboard() {
       <div style={{ maxWidth: 1280, margin: '0 auto', padding: '24px 24px 60px' }}>
         <GoBack />
 
+        {/* Welcome Banner */}
+        <div style={{ 
+          background: 'linear-gradient(135deg, #2563EB 0%, #7C3AED 100%)', 
+          borderRadius: 24, 
+          padding: '40px 32px', 
+          marginBottom: 32,
+          color: '#fff',
+          position: 'relative',
+          overflow: 'hidden'
+        }}>
+          <div style={{ position: 'relative', zIndex: 1 }}>
+            <h1 style={{ fontSize: 32, fontWeight: 800, marginBottom: 8 }}>Welcome back, {user?.name || 'Student'}! 👋</h1>
+            <p style={{ fontSize: 18, opacity: 0.9 }}>Looking for something special today? Check out the latest listings on campus.</p>
+          </div>
+          <div style={{ 
+            position: 'absolute', right: -20, top: -20, width: 200, height: 200, 
+            background: 'rgba(255,255,255,0.1)', borderRadius: '50%', filter: 'blur(40px)' 
+          }} />
+        </div>
+
         {!search && !filters.category && (
           <>
-            <ErrorBoundary>
-              <TrendingSection items={trending} loading={loading.trending} />
-            </ErrorBoundary>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 24, marginBottom: 32 }}>
+              <ErrorBoundary>
+                <TrendingSection items={trending} loading={loading.trending} />
+              </ErrorBoundary>
+              
+              <div style={{ background: '#F8FAFC', borderRadius: 20, padding: 24 }}>
+                <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 16 }}>🏃 Fresh Arrivals</h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  {latestItems.map(item => (
+                    <div key={item.id} onClick={() => navigate(`/item/${item.id}`)} style={{ 
+                      display: 'flex', gap: 12, alignItems: 'center', cursor: 'pointer',
+                      padding: 8, borderRadius: 12, transition: 'background 0.2s'
+                    }} className="hover:bg-white hover:shadow-sm">
+                      <img src={item.images?.[0]} alt="" style={{ width: 48, height: 48, borderRadius: 8, objectFit: 'cover' }} />
+                      <div>
+                        <div style={{ fontWeight: 600, fontSize: 14 }}>{item.title}</div>
+                        <div style={{ color: '#2563EB', fontWeight: 700, fontSize: 13 }}>${item.price}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
 
             <ErrorBoundary>
               <CategoryExplorer 
@@ -95,7 +139,7 @@ export default function Dashboard() {
             </ErrorBoundary>
 
             <ErrorBoundary>
-              <RecentlyViewedSection items={recentViewed} loading={loading.recent} />
+              <RecentlyViewedSection items={recentViewed || []} loading={loading.recent} />
             </ErrorBoundary>
           </>
         )}

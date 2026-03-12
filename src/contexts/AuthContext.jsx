@@ -58,7 +58,10 @@ export function AuthProvider({ children }) {
       .eq('id', user.id)
       .select()
       .single()
-    if (!error && data) setProfile(data)
+    if (!error && data) {
+      setProfile(data)
+      return { data, error: null }
+    }
     return { error }
   }
 
@@ -100,15 +103,22 @@ export function AuthProvider({ children }) {
     return { data, error: null }
   }
 
-  async function logout() {
-    if (useMock) { setUser(null); setProfile(null); return }
+  async function signOut() {
     await supabase.auth.signOut()
     setUser(null)
     setProfile(null)
+    localStorage.removeItem('supabase.auth.token') // Clear potential stale tokens
   }
 
-  const value = { user, profile, loading, useMock, register, login, logout, updateProfile,
-    isAdmin: profile?.role === 'admin' || user?.email === 'admin@eecshop.com'
+  const value = {
+    user,
+    profile,
+    loading,
+    login,
+    register,
+    signOut,
+    updateProfile,
+    isAdmin: profile?.role === 'admin'
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

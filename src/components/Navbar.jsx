@@ -10,7 +10,7 @@ import {
 import toast from 'react-hot-toast'
 
 export default function Navbar({ onSearch }) {
-  const { user, profile, logout, isAdmin } = useAuth()
+  const { user, profile, signOut, isAdmin } = useAuth()
   const navigate   = useNavigate()
   const location   = useLocation()
   const [menuOpen, setMenuOpen]   = useState(false)
@@ -30,7 +30,7 @@ export default function Navbar({ onSearch }) {
   ].filter((_, i) => query.length > 0 || i === 2) // only show recent if query is empty
 
   async function handleLogout() {
-    await logout()
+    await signOut()
     toast.success('Logged out successfully')
     navigate('/login')
     setDropOpen(false)

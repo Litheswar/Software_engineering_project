@@ -6,54 +6,142 @@ const AuthContext = createContext(null);
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [session, setSession] = useState(null);
+  const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  const fetchProfile = async (uid) => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', uid)
+        .single();
+
+      if (error) {
+        console.warn("Profile fetch error:", error.message);
+        return null;
+      }
+      return data;
+    } catch (err) {
+      console.error("Unexpected error fetching profile:", err);
+      return null;
+    }
+  };
+
   useEffect(() => {
-    // Check active sessions and sets the user
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
+    const initializeAuth = async () => {
+      try {
+        console.log("Initializing Auth...");
+        const { data: { session: initialSession }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error("Session fetch error:", error.message);
+        }
+
+        setSession(initialSession);
+        setUser(initialSession?.user ?? null);
+        
+        if (initialSession?.user) {
+          console.log("Session found for user:", initialSession.user.id);
+          const prof = await fetchProfile(initialSession.user.id);
+          setProfile(prof);
+        } else {
+          console.log("No active session found.");
+        }
+      } catch (error) {
+        console.error("Unexpected error initializing auth:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    initializeAuth();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
+      console.log(`Auth state changed: ${event}`, currentSession?.user?.id);
+      
+      setSession(currentSession);
+      setUser(currentSession?.user ?? null);
+      
+      if (currentSession?.user) {
+        const prof = await fetchProfile(currentSession.user.id);
+        setProfile(prof);
+      } else {
+        setProfile(null);
+      }
+      
       setLoading(false);
     });
 
-    // Listen for changes on auth state (log in, log out, etc.)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
+    return () => {
+      if (subscription) subscription.unsubscribe();
+    };
   }, []);
 
   const login = async (email, password) => {
-    return await supabase.auth.signInWithPassword({ email, password });
+    console.log("Attempting login for:", email);
+    const result = await supabase.auth.signInWithPassword({ email, password });
+    if (result.error) {
+      console.error("Login failed:", result.error.message);
+    } else {
+      console.log("Login successful:", result.data.user.id);
+    }
+    return result;
   };
 
   const logout = async () => {
+    console.log("Logging out...");
     await supabase.auth.signOut();
     setUser(null);
     setSession(null);
+    setProfile(null);
   };
 
   const register = async (email, password, metadata) => {
-    return await supabase.auth.signUp({
+    console.log("Attempting register for:", email);
+    const result = await supabase.auth.signUp({
       email,
       password,
-      options: { data: metadata }
+      options: {
+        data: metadata
+      }
     });
+    if (result.error) {
+      console.error("Registration failed:", result.error.message);
+    } else {
+      console.log("Registration successful:", result.data.user?.id);
+    }
+    return result;
   };
 
-  const isAuthenticated = !!user;
+  const updateProfile = async (updates) => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .update(updates)
+        .eq('id', user.id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      setProfile(data);
+      return { data, error: null };
+    } catch (error) {
+      console.error("Error updating profile:", error);
+      return { data: null, error };
+    }
+  };
 
   const value = {
     session,
     user,
+    profile,
     loading,
     login,
     logout,
     register,
-    isAuthenticated,
+    updateProfile,
+    isAuthenticated: !!user,
   };
 
   return (

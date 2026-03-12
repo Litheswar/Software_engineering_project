@@ -53,49 +53,42 @@ const Register = () => {
     setIsLoading(true);
 
     try {
+      console.log("Submitting registration form...");
       // 1. Register with Supabase
       const { data, error } = await register(form.email, form.password, {
         name: form.name.trim()
       });
 
       if (error) {
-        if (error.message.toLowerCase().includes('already registered')) {
+        console.error("Signup error details:", error);
+        
+        // Handle specific error codes if available
+        if (error.status === 400 && error.message.includes('grant_type')) {
+          setErrors({ ...errors, general: 'Invalid request. Please check your credentials.' });
+        } else if (error.message.toLowerCase().includes('already registered') || error.status === 422) {
           setErrors({ ...errors, email: 'Email already registered' });
         } else if (error.message.toLowerCase().includes('password')) {
           setErrors({ ...errors, password: error.message });
+        } else if (error.message.toLowerCase().includes('confirm your email')) {
+          setErrors({ ...errors, general: 'Please confirm your email address before logging in.' });
         } else {
-          setErrors({ ...errors, general: error.message });
+          setErrors({ ...errors, general: error.message || 'Signup failed' });
         }
         setIsLoading(false);
         return;
       }
 
-      // 2. Insert into profiles table
-      if (data?.user) {
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .insert([
-            {
-              id: data.user.id,
-              name: form.name.trim(),
-              email: form.email,
-              trust_score: 80,
-            }
-          ]);
+      console.log("Signup successful, user data:", data.user);
 
-        if (profileError) {
-          console.error("Profile creation error:", profileError);
-        }
-      }
-
+      // No manual profile insertion needed anymore - done via DB trigger
       setSuccess(true);
       setTimeout(() => {
         navigate('/dashboard', { replace: true });
       }, 1500);
 
     } catch (err) {
-      console.error(err);
-      setErrors({ ...errors, general: 'Network error occurred' });
+      console.error("Registration catch block:", err);
+      setErrors({ ...errors, general: 'Network error occurred. Please try again.' });
       setIsLoading(false);
     }
   };

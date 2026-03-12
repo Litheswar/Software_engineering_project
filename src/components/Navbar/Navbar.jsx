@@ -10,7 +10,7 @@ import { getInitials } from '../../utils/helpers';
 import { mockNotifications } from '../../data/mockData';
 
 const Navbar = () => {
-  const { isAuthenticated, user, logout } = useAuth();
+  const { isAuthenticated, user, profile, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -118,7 +118,7 @@ const Navbar = () => {
                     className="flex items-center gap-2 focus:outline-none"
                   >
                     <div className="w-9 h-9 bg-gradient-to-br from-primary to-blue-700 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-sm ring-2 ring-transparent transition-all hover:ring-primary/30">
-                      {getInitials(user?.name)}
+                      {getInitials(profile?.name || user?.email)}
                     </div>
                   </motion.button>
 
@@ -134,12 +134,12 @@ const Navbar = () => {
                         {/* User Info Section */}
                         <div className="px-4 py-3 border-b border-gray-200 flex items-center gap-3 mb-2">
                           <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold shrink-0">
-                            {getInitials(user?.name)}
+                            {getInitials(profile?.name || user?.email)}
                           </div>
                           <div className="flex flex-col min-w-0">
-                            <span className="text-sm font-bold text-textDark truncate">{user?.name || 'Test User'}</span>
-                            <a href={`mailto:${user?.email || 'test@eec.edu'}`} className="text-xs text-textMuted hover:text-primary transition-colors truncate">
-                              {user?.email || 'test@eec.edu'}
+                            <span className="text-sm font-bold text-textDark truncate">{profile?.name || 'User'}</span>
+                            <a href={`mailto:${user?.email}`} className="text-xs text-textMuted hover:text-primary transition-colors truncate">
+                              {user?.email}
                             </a>
                           </div>
                         </div>
@@ -238,10 +238,10 @@ const Navbar = () => {
                 <>
                   <div className="flex items-center gap-3 mb-4 p-3 bg-gray-50 rounded-xl">
                     <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center text-white font-bold">
-                      {getInitials(user?.name)}
+                      {getInitials(profile?.name || user?.email)}
                     </div>
                     <div>
-                      <p className="font-bold text-textDark text-sm">{user?.name}</p>
+                      <p className="font-bold text-textDark text-sm">{profile?.name || 'User'}</p>
                       <p className="text-xs text-textMuted">{user?.email}</p>
                     </div>
                   </div>

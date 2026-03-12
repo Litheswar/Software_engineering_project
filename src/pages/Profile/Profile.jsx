@@ -22,19 +22,33 @@ const fadeUp = {
 };
 
 const Profile = () => {
-  const { user, login } = useAuth();
+  const { user, profile, updateProfile, loading: authLoading } = useAuth();
   const [activeTab, setActiveTab] = useState('listings');
   const [editing, setEditing] = useState(false);
-  const [name, setName] = useState(user?.name || '');
-  const [savedName, setSavedName] = useState(user?.name || '');
+  const [isUpdating, setIsUpdating] = useState(false);
+  
+  // Local state for editing - sync with profile once profile is loaded
+  const [name, setName] = useState('');
+  
+  React.useEffect(() => {
+    if (profile?.name) {
+      setName(profile.name);
+    }
+  }, [profile]);
 
   const userListings = mockItems.filter((i) => i.sellerId === 1);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (name.trim().length < 3) return;
-    setSavedName(name.trim());
-    login({ ...user, name: name.trim() });
-    setEditing(false);
+    setIsUpdating(true);
+    try {
+      const { error } = await updateProfile({ name: name.trim() });
+      if (!error) {
+        setEditing(false);
+      }
+    } finally {
+      setIsUpdating(false);
+    }
   };
 
   return (
@@ -55,7 +69,7 @@ const Profile = () => {
             {/* Avatar & Edit Button */}
             <div className="flex justify-between items-end -mt-12 mb-4">
               <div className="w-24 h-24 bg-gradient-to-br from-primary to-blue-700 rounded-2xl border-4 border-white flex items-center justify-center text-white font-bold text-3xl shadow-lg relative z-10">
-                {getInitials(savedName)}
+                {getInitials(profile?.name || user?.email)}
               </div>
               
               {!editing ? (
@@ -67,10 +81,11 @@ const Profile = () => {
                 </button>
               ) : (
                  <div className="flex gap-2">
-                    <button onClick={handleSave} className="flex items-center gap-1.5 bg-secondary text-white px-4 py-2 rounded-xl text-sm font-semibold shadow-sm hover:bg-secondary-600 transition-colors">
-                      <Save size={16} /> Save
+                    <button onClick={handleSave} disabled={isUpdating} className="flex items-center gap-1.5 bg-secondary text-white px-4 py-2 rounded-xl text-sm font-semibold shadow-sm hover:bg-secondary-600 transition-colors disabled:opacity-50">
+                      {isUpdating ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Save size={16} />}
+                      Save
                     </button>
-                    <button onClick={() => { setName(savedName); setEditing(false); }} className="flex items-center gap-1.5 border border-gray-200 bg-white text-textMuted px-3 py-2 rounded-xl text-sm hover:bg-gray-50 transition-colors shadow-sm">
+                    <button onClick={() => { setName(profile?.name || ''); setEditing(false); }} className="flex items-center gap-1.5 border border-gray-200 bg-white text-textMuted px-3 py-2 rounded-xl text-sm hover:bg-gray-50 transition-colors shadow-sm">
                       <X size={16} />
                     </button>
                   </div>
@@ -89,14 +104,14 @@ const Profile = () => {
                 />
               ) : (
                 <h1 className="font-heading font-black text-2xl text-textDark mb-1 flex items-center gap-2">
-                  {savedName}
-                  {user?.verified && <ShieldCheck size={20} className="text-primary mt-1" title="Verified Student" />}
+                  {profile?.name || 'User'}
+                  {profile?.verified && <ShieldCheck size={20} className="text-primary mt-1" title="Verified Student" />}
                 </h1>
               )}
               
               <div className="flex flex-wrap items-center gap-y-2 gap-x-4 text-sm text-textMuted mt-2 font-medium">
-                <span className="flex items-center gap-1"><MapPin size={16} className="text-gray-400" /> {user?.college || 'Engineering Campus'}</span>
-                <span className="flex items-center gap-1"><Calendar size={16} className="text-gray-400" /> Member since {user?.joined || '2024'}</span>
+                <span className="flex items-center gap-1"><MapPin size={16} className="text-gray-400" /> {profile?.college || 'Engineering Campus'}</span>
+                <span className="flex items-center gap-1"><Calendar size={16} className="text-gray-400" /> Member since {profile?.created_at ? new Date(profile.created_at).getFullYear() : '2024'}</span>
               </div>
             </div>
 
@@ -104,11 +119,11 @@ const Profile = () => {
             <div className="grid grid-cols-3 divide-x divide-gray-100 border-t border-gray-100 pt-6">
               <div className="text-center px-2">
                 <div className="flex items-center justify-center gap-1.5 mb-1 text-textMuted">
-                  <Star size={18} className={trustScoreColor(user?.trustScore || 84)} />
+                  < Star size={18} className={trustScoreColor(profile?.trust_score || 85)} />
                   <p className="text-xs font-semibold uppercase tracking-wide">Trust Score</p>
                 </div>
-                <p className={`font-heading font-black text-3xl ${trustScoreColor(user?.trustScore || 84)}`}>
-                  {user?.trustScore || 84}<span className="text-lg text-gray-400 font-bold">%</span>
+                <p className={`font-heading font-black text-3xl ${trustScoreColor(profile?.trust_score || 85)}`}>
+                  {profile?.trust_score || 85}<span className="text-lg text-gray-400 font-bold">%</span>
                 </p>
               </div>
               

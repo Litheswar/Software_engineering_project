@@ -45,18 +45,32 @@ const Login = () => {
     setIsLoading(true);
 
     try {
-      const { error } = await login(form.email, form.password);
+      console.log("Submitting login form...");
+      const { data, error } = await login(form.email, form.password);
       
       if (error) {
-        setLoginError(error.message || 'Invalid email or password');
+        console.error("Login error details:", error);
+        
+        if (error.status === 400) {
+          if (error.message.toLowerCase().includes('invalid login credentials')) {
+            setLoginError('Invalid email or password');
+          } else if (error.message.toLowerCase().includes('email not confirmed')) {
+            setLoginError('Please confirm your email address before logging in.');
+          } else {
+            setLoginError(error.message);
+          }
+        } else {
+          setLoginError(error.message || 'An error occurred during login');
+        }
         setIsLoading(false);
         return;
       }
       
+      console.log("Login successful, session established.");
       navigate(from, { replace: true });
     } catch (err) {
-      console.error("Login error:", err);
-      setLoginError('An unexpected error occurred. Please try again later.');
+      console.error("Login catch block:", err);
+      setLoginError('An unexpected network error occurred. Please try again later.');
     } finally {
       setIsLoading(false);
     }

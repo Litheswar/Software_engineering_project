@@ -27,7 +27,7 @@ export function useMarketplace() {
     }
   }, [])
 
-  const fetchTrending = useCallback(async () => {
+  const fetchTrending = useCallback(async (limitCount = 6) => {
     setLoading(prev => ({ ...prev, trending: true }))
     try {
       const { data, error } = await supabase
@@ -35,7 +35,7 @@ export function useMarketplace() {
         .select('*, seller:users(name, trust_score, college)')
         .eq('status', 'approved')
         .order('views', { ascending: false })
-        .limit(4)
+        .limit(limitCount)
       if (error) throw error
       setTrending(data || [])
     } catch (err) {
@@ -74,7 +74,7 @@ export function useMarketplace() {
     }
   }, [])
 
-  const fetchLatestItems = useCallback(async () => {
+  const fetchLatestItems = useCallback(async (limitCount = 8) => {
     setLoading(prev => ({ ...prev, items: true }))
     try {
       const { data, error } = await supabase
@@ -82,7 +82,7 @@ export function useMarketplace() {
         .select('*, seller:users(name, trust_score, college)')
         .eq('status', 'approved')
         .order('created_at', { ascending: false })
-        .limit(4)
+        .limit(limitCount)
       if (error) throw error
       return data || []
     } catch (err) {

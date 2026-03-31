@@ -7,8 +7,9 @@ import { Eye, EyeOff, Mail, Lock, ShoppingBag, ArrowRight, AlertCircle } from 'l
 import toast from 'react-hot-toast'
 
 export default function Login() {
-  const { login } = useAuth()
+  const { login, fetchProfile } = useAuth()
   const navigate   = useNavigate()
+  const [role, setRole]       = useState('student')
   const [form, setForm]       = useState({ email: '', password: '' })
   const [errors, setErrors]   = useState({})
   const [showPwd, setShowPwd] = useState(false)
@@ -33,9 +34,10 @@ export default function Login() {
       return
     }
     setLoading(true)
-    const { error } = await login(form)
-    setLoading(false)
+    const { data, error } = await login(form)
+    
     if (error) {
+      setLoading(false)
       let msg = error.message
       if (msg.includes('Email not confirmed')) {
         msg = 'Please confirm your email address before logging in. Check your inbox! ✉️'
@@ -47,7 +49,15 @@ export default function Login() {
       setTimeout(() => setShake(false), 500)
     } else {
       toast.success('Welcome back! 🎉')
-      navigate('/dashboard')
+      
+      // Fetch profile to ensure we have the latest role from DB
+      const { data: profileData } = await fetchProfile(data.user.id)
+      
+      if (profileData?.role === 'admin') {
+         navigate('/admin')
+      } else {
+         navigate('/dashboard')
+      }
     }
   }
 
@@ -105,9 +115,37 @@ export default function Login() {
             style={{padding:'48px 40px',display:'flex',flexDirection:'column',justifyContent:'center'}}
           >
             <h2 style={{fontSize:26,fontWeight:800,color:'#1F2937',marginBottom:6}}>Sign in</h2>
-            <p style={{color:'#6B7280',fontSize:15,marginBottom:32}}>
+            <p style={{color:'#6B7280',fontSize:15,marginBottom:24}}>
               Don't have an account? <Link to="/register" style={{color:'#2563EB',fontWeight:600,textDecoration:'none'}}>Create one free</Link>
             </p>
+
+            {/* Role Selector */}
+            <div style={{
+              display: 'flex', background: '#F1F5F9', borderRadius: 12, padding: 4, marginBottom: 28,
+              position: 'relative'
+            }}>
+              <div style={{
+                position: 'absolute', top: 4, left: role === 'student' ? '1%' : '51%',
+                width: '48%', height: 'calc(100% - 8px)', background: '#fff', borderRadius: 8,
+                boxShadow: '0 2px 4px rgba(0,0,0,0.1)', transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+              }} />
+              <button 
+                type="button" onClick={() => setRole('student')}
+                style={{
+                  flex: 1, padding: '10px', border: 'none', background: 'none', cursor: 'pointer',
+                  fontSize: 14, fontWeight: role === 'student' ? 700 : 500, color: role === 'student' ? '#2563EB' : '#64748B',
+                  position: 'relative', zIndex: 1, transition: 'color 0.3s'
+                }}
+              >Student</button>
+              <button 
+                type="button" onClick={() => setRole('admin')}
+                style={{
+                  flex: 1, padding: '10px', border: 'none', background: 'none', cursor: 'pointer',
+                  fontSize: 14, fontWeight: role === 'admin' ? 700 : 500, color: role === 'admin' ? '#2563EB' : '#64748B',
+                  position: 'relative', zIndex: 1, transition: 'color 0.3s'
+                }}
+              >Admin</button>
+            </div>
 
             {errors.general && (
               <div style={{display:'flex',alignItems:'center',gap:8,padding:'12px 16px',background:'#FEE2E2',borderRadius:12,marginBottom:20,border:'1px solid #FECACA'}}>

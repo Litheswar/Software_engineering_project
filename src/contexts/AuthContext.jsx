@@ -65,16 +65,16 @@ export function AuthProvider({ children }) {
     return { error }
   }
 
-  async function register({ name, email, password, college }) {
+  async function register({ name, email, password, college, role = 'student' }) {
     if (useMock) {
-      const mockU = { ...MOCK_USER, name, email, college, id: Date.now().toString() }
+      const mockU = { ...MOCK_USER, name, email, college, role, id: Date.now().toString() }
       setUser(mockU)
       setProfile(mockU)
       return { error: null }
     }
     const { data, error } = await supabase.auth.signUp({ email, password,
       options: { 
-        data: { name, college },
+        data: { name, college, role },
         emailRedirectTo: `${window.location.origin}/dashboard`
       }
     })
@@ -118,6 +118,7 @@ export function AuthProvider({ children }) {
     register,
     signOut,
     updateProfile,
+    fetchProfile,
     isAdmin: profile?.role === 'admin'
   }
 

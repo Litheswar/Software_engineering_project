@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '../contexts/AuthContext'
 import PageWrapper from '../components/PageWrapper'
-import { Eye, EyeOff, Mail, Lock, User, GraduationCap, ShoppingBag, ArrowRight, AlertCircle, CheckCircle } from 'lucide-react'
+import { Eye, EyeOff, Mail, Lock, User, GraduationCap, ShoppingBag, ArrowRight, AlertCircle, CheckCircle, Shield } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 function PasswordStrength({ password }) {
@@ -28,7 +28,7 @@ function PasswordStrength({ password }) {
 export default function Register() {
   const { register } = useAuth()
   const navigate      = useNavigate()
-  const [form, setForm]       = useState({ name:'', email:'', password:'', confirm:'', college:'' })
+  const [form, setForm]       = useState({ name:'', email:'', password:'', confirm:'', college:'', role:'student', adminCode:'' })
   const [errors, setErrors]   = useState({})
   const [showPwd, setShowPwd] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -39,10 +39,21 @@ export default function Register() {
     if (!form.name.trim()) e.name = 'Full name is required'
     if (!form.email) e.email = 'Email is required'
     else if (!/\S+@\S+\.\S+/.test(form.email)) e.email = 'Enter a valid email'
+    else {
+      // Remove domain restriction for admins as requested
+      if (form.role === 'student' && !form.email.endsWith('@college.edu')) {
+        e.email = 'Student emails must end with @college.edu'
+      }
+    }
+    
     if (!form.password) e.password = 'Password is required'
     else if (form.password.length < 6) e.password = 'Minimum 6 characters'
     if (form.password !== form.confirm) e.confirm = 'Passwords do not match'
     if (!form.college.trim()) e.college = 'College name is required'
+    
+    if (form.role === 'admin' && form.adminCode !== '310624104165') {
+      e.adminCode = 'Invalid access code'
+    }
     return e
   }
 
@@ -157,6 +168,53 @@ export default function Register() {
               {renderField("Full Name", <User size={16}/>, "name", "text", "Your full name")}
               {renderField("College Email", <Mail size={16}/>, "email", "email", "you@college.edu")}
               {renderField("College Name", <GraduationCap size={16}/>, "college", "text", "e.g. NIT Trichy, IIT Madras")}
+              
+              {/* Account Type Selection */}
+              <div>
+                <label style={{fontSize:14,fontWeight:600,color:'#374151',display:'block',marginBottom:8}}>Account Type</label>
+                <div style={{display:'flex',gap:12}}>
+                  {['student', 'admin'].map(r => (
+                    <button key={r} type="button" onClick={()=>setForm(p=>({...p,role:r}))}
+                      style={{
+                        flex:1,padding:'14px',borderRadius:16,border:'2px solid',
+                        borderColor: form.role === r ? '#2563EB' : '#E5E7EB',
+                        background: form.role === r ? '#EFF6FF' : '#fff',
+                        cursor:'pointer',textAlign:'left',transition:'all 0.2s',position:'relative',
+                        display:'flex',flexDirection:'column',gap:4
+                      }}
+                    >
+                      <span style={{fontSize:15,fontWeight:700,color:form.role===r?'#2563EB':'#374151',textTransform:'capitalize'}}>{r}</span>
+                      <span style={{fontSize:12,color:form.role===r?'#3B82F6':'#6B7280',lineHeight:1.4}}>
+                        {r === 'student' ? 'Buy & sell items on campus' : 'Approve & moderate listings'}
+                      </span>
+                      {form.role === r && <div style={{position:'absolute',top:12,right:12,width:18,height:18,borderRadius:'50%',background:'#2563EB',display:'flex',alignItems:'center',justifyContent:'center'}}><CheckCircle size={12} color="#fff"/></div>}
+                    </button>
+                  ))}
+                </div>
+                <p style={{fontSize:12,color:'#9CA3AF',marginTop:8,marginLeft:2}}>
+                  {form.role === 'admin' ? '⚠️ Admin accounts require special authorization.' : 'Students join the campus marketplace.'}
+                </p>
+              </div>
+
+              {/* Conditional Admin Code */}
+              <AnimatePresence>
+                {form.role === 'admin' && (
+                  <motion.div initial={{opacity:0,height:0}} animate={{opacity:1,height:'auto'}} exit={{opacity:0,height:0}} transition={{duration:0.25}}>
+                    <div style={{paddingTop:8}}>
+                      <label style={{fontSize:14,fontWeight:600,color:'#374151',display:'block',marginBottom:8}}>Admin Access Code</label>
+                      <div style={{position:'relative'}}>
+                        <Shield size={17} style={{position:'absolute',left:14,top:'50%',transform:'translateY(-50%)',color:'#9CA3AF',pointerEvents:'none'}} />
+                        <input type="password" value={form.adminCode} onChange={set('adminCode')}
+                          placeholder="Enter your authorization code" className="input-field"
+                          style={{paddingLeft:44,borderColor:errors.adminCode?'#EF4444':undefined}}
+                        />
+                      </div>
+                      {errors.adminCode && <p style={{color:'#EF4444',fontSize:13,marginTop:5}}>{errors.adminCode}</p>}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
               {renderField("Password", <Lock size={16}/>, "password", "password", "Min 6 characters", true)}
               {renderField("Confirm Password", <Lock size={16}/>, "confirm", "password", "Repeat your password", true)}
 

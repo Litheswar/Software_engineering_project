@@ -1,61 +1,77 @@
-import { Tag } from 'lucide-react'
+import { 
+  Monitor, Book, Smartphone, Gamepad, 
+  ToyBrick, Sofa, Shirt, Trophy, 
+  Music, Camera, Bike, Utensils,
+  Tag, Palette
+} from 'lucide-react'
+
+const iconMap = {
+  'Electronics': <Monitor size={16} />,
+  'Books':       <Book size={16} />,
+  'Smartphones': <Smartphone size={16} />,
+  'Gaming':      <Gamepad size={16} />,
+  'Toys':        <ToyBrick size={16} />,
+  'Furniture':   <Sofa size={16} />,
+  'Clothing':    <Shirt size={16} />,
+  'Sports':      <Trophy size={16} />,
+  'Music':       <Music size={16} />,
+  'Photography': <Camera size={16} />,
+  'Bicycles':    <Bike size={16} />,
+  'Kitchen':     <Utensils size={16} />,
+  'Arts':        <Palette size={16} />,
+}
 
 export default function CategoryExplorer({ categories, onSelect, activeCategory }) {
   if (categories.length === 0) return null
 
   return (
     <div style={{ marginBottom: 32 }}>
-      <h2 style={{ fontSize: 20, fontWeight: 800, color: '#1F2937', marginBottom: 16 }}>Category Explorer</h2>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 12 }}>
-        {categories.slice(0, 8).map(cat => (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+        <h2 style={{ fontSize: 18, fontWeight: 700, color: '#1F2937', margin: 0 }}>Browse Categories</h2>
+        <button 
+          onClick={() => onSelect('')}
+          style={{ fontSize: 13, fontWeight: 600, color: '#2563EB', background: 'none', border: 'none', cursor: 'pointer' }}
+        >View All</button>
+      </div>
+      
+      <div style={{ 
+        display: 'flex', 
+        gap: 10, 
+        overflowX: 'auto', 
+        paddingBottom: 8,
+        msOverflowStyle: 'none',
+        scrollbarWidth: 'none',
+        WebkitOverflowScrolling: 'touch'
+      }}>
+        <style>{`
+          div::-webkit-scrollbar { display: none; }
+        `}</style>
+        
+        {categories.map(cat => (
           <button 
             key={cat.id} 
             onClick={() => onSelect(cat.name)} 
             style={{
-              background: activeCategory === cat.name ? '#EFF6FF' : '#fff',
-              border: '1px solid',
-              borderColor: activeCategory === cat.name ? '#2563EB' : '#E2E8F0',
-              borderRadius: 12,
-              padding: '16px 12px',
-              textAlign: 'center',
-              cursor: 'pointer',
-              transition: 'all 0.2s',
-              boxShadow: '0 2px 4px rgba(0,0,0,0.02)',
-              transform: activeCategory === cat.name ? 'translateY(-2px)' : 'none'
-            }}
-            onMouseEnter={e => {
-              if (activeCategory !== cat.name) {
-                e.currentTarget.style.borderColor = '#2563EB'
-                e.currentTarget.style.transform = 'translateY(-2px)'
-              }
-            }}
-            onMouseLeave={e => {
-              if (activeCategory !== cat.name) {
-                e.currentTarget.style.borderColor = '#E2E8F0'
-                e.currentTarget.style.transform = 'translateY(0)'
-              }
-            }}
-          >
-            <div style={{
-              width: 40,
-              height: 40,
-              borderRadius: '50%',
-              background: activeCategory === cat.name ? '#2563EB' : '#EFF6FF',
-              color: activeCategory === cat.name ? '#fff' : '#2563EB',
+              flex: '0 0 auto',
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'center',
-              margin: '0 auto 10px'
-            }}>
-              <Tag size={18} />
-            </div>
-            <span style={{ 
-              fontSize: 13, 
-              fontWeight: 600, 
-              color: activeCategory === cat.name ? '#1D4ED8' : '#374151' 
-            }}>
-              {cat.name}
-            </span>
+              gap: 8,
+              padding: '10px 20px',
+              background: activeCategory === cat.name ? '#2563EB' : '#fff',
+              border: '1px solid',
+              borderColor: activeCategory === cat.name ? '#2563EB' : '#E2E8F0',
+              borderRadius: 50,
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+              whiteSpace: 'nowrap',
+              boxShadow: activeCategory === cat.name ? '0 4px 10px rgba(37,99,235,0.2)' : '0 2px 4px rgba(0,0,0,0.02)',
+              color: activeCategory === cat.name ? '#fff' : '#4B5563',
+              fontSize: 14,
+              fontWeight: 600
+            }}
+          >
+            {iconMap[cat.name] || <Tag size={16} />}
+            {cat.name}
           </button>
         ))}
       </div>

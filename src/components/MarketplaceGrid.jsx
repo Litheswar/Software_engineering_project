@@ -7,13 +7,13 @@ function EmptyState({ onClear, totalCount }) {
   return (
     <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '80px 20px' }}>
       <div style={{ fontSize: 64, marginBottom: 16 }}>🔍</div>
-      <h3 style={{ fontSize: 20, fontWeight: 700, color: '#1F2937', marginBottom: 8 }}>No items found</h3>
+      <h3 style={{ fontSize: 20, fontWeight: 700, color: '#1F2937', marginBottom: 8 }}>No items available yet</h3>
       <p style={{ color: '#6B7280', fontSize: 15, marginBottom: 24 }}>
-        We could not find anything matching your criteria.
+        Be the first to sell something!
       </p>
       <div style={{ display: 'flex', gap: 12, justifyItems: 'center', justifyContent: 'center' }}>
         <button onClick={onClear} className="btn-secondary">Clear Filters</button>
-        <button onClick={() => window.location.href = '/sell'} className="btn-primary">Post an Item</button>
+        <button onClick={() => window.location.href = '/sell'} className="btn-primary">Sell an Item</button>
       </div>
     </div>
   )

@@ -12,7 +12,7 @@ import CategoryExplorer from '../components/CategoryExplorer'
 import MarketplaceGrid from '../components/MarketplaceGrid'
 import { useMarketplace } from '../hooks/useMarketplace'
 
-const ITEMS_PER_PAGE = 8
+const ITEMS_PER_PAGE = 20
 
 export default function Dashboard() {
   const { user } = useAuth()
@@ -119,10 +119,10 @@ export default function Dashboard() {
                       display: 'flex', gap: 12, alignItems: 'center', cursor: 'pointer',
                       padding: 8, borderRadius: 12, transition: 'background 0.2s'
                     }} className="hover:bg-white hover:shadow-sm">
-                      <img src={item.images?.[0]} alt="" style={{ width: 48, height: 48, borderRadius: 8, objectFit: 'cover' }} />
+                      <img src={item.image_url} alt="" style={{ width: 48, height: 48, borderRadius: 8, objectFit: 'cover' }} />
                       <div>
                         <div style={{ fontWeight: 600, fontSize: 14 }}>{item.title}</div>
-                        <div style={{ color: '#2563EB', fontWeight: 700, fontSize: 13 }}>${item.price}</div>
+                        <div style={{ color: '#2563EB', fontWeight: 700, fontSize: 13 }}>₹{item.price}</div>
                       </div>
                     </div>
                   ))}

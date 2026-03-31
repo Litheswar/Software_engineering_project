@@ -161,7 +161,10 @@ export default function ItemCard({ item, showStatus = false, onContact }) {
             </div>
             <div>
               <p style={{ fontSize: 13, fontWeight: 600, color: '#374151', margin: 0 }}>{item.seller?.name || 'Anonymous'}</p>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
+              {item.seller?.college && (
+                <p style={{ fontSize: 11, color: '#6B7280', margin: '2px 0 0' }}>{item.seller.college}</p>
+              )}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 4 }}>
                 <div style={{ display:'flex', alignItems:'center', gap:2, background:'#FFFBEB', color:'#B45309', padding:'2px 6px', borderRadius:6, border:'1px solid #FEF3C7', fontSize:11, fontWeight:700 }}>
                   <Star size={10} fill="#F59E0B" color="#F59E0B" />
                   <span>{item.seller?.trust_score || 0}</span>

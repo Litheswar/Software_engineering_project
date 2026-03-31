@@ -32,7 +32,7 @@ export function useMarketplace() {
     try {
       const { data, error } = await supabase
         .from('items')
-        .select('*, seller:users(name, trust_score)')
+        .select('*, seller:users(name, trust_score, college)')
         .eq('status', 'approved')
         .order('views', { ascending: false })
         .limit(4)
@@ -56,7 +56,7 @@ export function useMarketplace() {
     try {
       const { data, error } = await supabase
         .from('items')
-        .select('*, seller:users(name, trust_score)')
+        .select('*, seller:users(name, trust_score, college)')
         .in('id', storedIds.slice(0, 6))
       
       if (error) throw error
@@ -79,7 +79,7 @@ export function useMarketplace() {
     try {
       const { data, error } = await supabase
         .from('items')
-        .select('*, seller:users(name, trust_score)')
+        .select('*, seller:users(name, trust_score, college)')
         .eq('status', 'approved')
         .order('created_at', { ascending: false })
         .limit(4)
@@ -109,7 +109,7 @@ export function useMarketplace() {
     try {
       let query = supabase
         .from('items')
-        .select('*, seller:users(name, trust_score)', { count: 'exact' })
+        .select('*, seller:users(name, trust_score, college)', { count: 'exact' })
         .eq('status', 'approved')
 
       if (search) query = query.ilike('title', `%${search}%`)

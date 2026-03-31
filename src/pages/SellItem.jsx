@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { supabase } from '../lib/supabase'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '../contexts/AuthContext'
@@ -9,8 +10,6 @@ import GoBack from '../components/GoBack'
 import { CATEGORIES, CONDITIONS, PRICE_SUGGESTIONS } from '../lib/mockData'
 import { Info, CheckCircle, Loader } from 'lucide-react'
 import toast from 'react-hot-toast'
-
-import { supabase } from '../lib/supabase'
 
 function FormField({ label, error, required, hint, children }) {
   return (
@@ -26,23 +25,40 @@ function FormField({ label, error, required, hint, children }) {
 }
 
 export default function SellItem() {
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
   const navigate  = useNavigate()
   const [form, setForm]     = useState({ title:'', category:'', price:'', condition:'', description:'' })
   const [images, setImages] = useState([])
   const [errors, setErrors] = useState({})
   const [loading, setLoading]   = useState(false)
+  const [dbCategories, setDbCategories] = useState([])
   const [submitted, setSubmitted] = useState(false)
 
-  const [categories, setCategories] = useState([])
-
+  // Fetch real categories from database
   useEffect(() => {
-    async function fetchCats() {
-      const { data } = await supabase.from('categories').select('name').order('name')
-      if (data) setCategories(data.map(c => c.name))
+    async function getCats() {
+      const { data, error } = await supabase.from('categories').select('name').order('name')
+      if (error) {
+        console.error('Error fetching categories:', error)
+        setDbCategories(CATEGORIES.slice(1)) // Fallback to mock
+      } else {
+        setDbCategories(data.map(c => c.name))
+      }
     }
-    fetchCats()
+    getCats()
   }, [])
+
+  // Warn if user tries to leave with unsaved changes
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      if (form.title || form.description || images.length > 0) {
+        e.preventDefault()
+        e.returnValue = ''
+      }
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [form, images])
 
   const suggestion = PRICE_SUGGESTIONS[form.category]
 
@@ -62,56 +78,93 @@ export default function SellItem() {
     return e
   }
 
+  const BUCKET_NAME = 'item-images'
+
   async function handleSubmit(ev) {
     ev.preventDefault()
-    if (!user) { toast.error('You must be logged in to post.'); return }
+    console.log("Submit button clicked")
+    
+    if (!user) { 
+      toast.error('You must be logged in to sell items'); 
+      return 
+    }
+    
     const errs = validate()
-    if (Object.keys(errs).length) { setErrors(errs); toast.error('Please fix the errors below.'); return }
+    if (Object.keys(errs).length) { 
+      setErrors(errs); 
+      toast.error('Please fix the errors before submitting.'); 
+      return 
+    }
     
     setLoading(true)
+    const toastId = toast.loading('Starting submission...')
+    
     try {
-      // 1. Upload Images to 'items-images' bucket
+      // 1. Upload Images
       const uploadedUrls = []
-      for (const imgObj of images) {
-        const file = imgObj.file
-        const fileExt = file.name.split('.').pop()
-        const fileName = `${Math.random()}.${fileExt}`
-        const filePath = `${user.id}/${fileName}`
-
-        const { error: uploadError } = await supabase.storage
-          .from('items-images')
-          .upload(filePath, file)
-
-        if (uploadError) throw uploadError
-
-        const { data: { publicUrl } } = supabase.storage
-          .from('items-images')
-          .getPublicUrl(filePath)
-        
-        uploadedUrls.push(publicUrl)
+      for (const [index, img] of images.entries()) {
+        if (img.file) {
+          toast.loading(`Uploading image ${index + 1}...`, { id: toastId })
+          const fileExt = img.file.name.split('.').pop()
+          const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`
+          const filePath = `${user.id}/${Date.now()}_${fileName}`
+          
+          console.log(`Uploading to ${BUCKET_NAME}/${filePath}`)
+          const { data, error: uploadError } = await supabase.storage
+            .from(BUCKET_NAME)
+            .upload(filePath, img.file)
+            
+          if (uploadError) {
+            console.error("Upload error:", uploadError)
+            throw new Error(`Upload failed: ${uploadError.message}`)
+          }
+          
+          const { data: { publicUrl } } = supabase.storage
+            .from(BUCKET_NAME)
+            .getPublicUrl(filePath)
+            
+          uploadedUrls.push(publicUrl)
+        }
       }
 
-      // 2. Create Item in DB
-      const { error: insertError } = await supabase
+      // 2. Insert Item into Database
+      toast.loading('Saving item details...', { id: toastId })
+      const itemData = {
+        title: form.title,
+        description: form.description,
+        price: Number(form.price),
+        category: form.category,
+        condition: form.condition,
+        image_url: uploadedUrls[0] || '', // Primary image
+        seller_id: user.id,
+        status: 'pending'
+      }
+      
+      console.log("Inserting item:", itemData)
+      const { data: item, error: dbError } = await supabase
         .from('items')
-        .insert({
-          title: form.title,
-          category: form.category,
-          price: Number(form.price),
-          condition: form.condition,
-          description: form.description,
-          image_url: uploadedUrls[0], // Using primary image
-          seller_id: user.id,
-          status: 'pending'
-        })
+        .insert([itemData])
+        .select()
+        .single()
+        
+      if (dbError) {
+        console.error("DB Error:", dbError)
+        throw new Error(`Database error: ${dbError.message}`)
+      }
+      
+      // 3. Update Seller Statistics
+      const { error: userError } = await supabase
+        .from('users')
+        .update({ listings_count: (profile?.listings_count || 0) + 1 })
+        .eq('id', user.id)
+        
+      if (userError) console.error("Could not update seller stats:", userError)
 
-      if (insertError) throw insertError
-
+      toast.success('Your item has been submitted for approval!', { id: toastId })
       setSubmitted(true)
-      toast.success('Listing created! Waiting for approval.')
     } catch (error) {
-      console.error('Error posting item:', error)
-      toast.error(error.message || 'Failed to post item.')
+      console.error("Submission failed:", error)
+      toast.error(error.message || 'Something went wrong. Please try again.', { id: toastId })
     } finally {
       setLoading(false)
     }
@@ -150,6 +203,8 @@ export default function SellItem() {
     </PageWrapper>
   )
 
+  const itemConditions = ['New', 'Like New', 'Good', 'Fair']
+
   return (
     <PageWrapper>
       <Navbar/>
@@ -179,7 +234,7 @@ export default function SellItem() {
                     }}
                   >
                     <option value="">Select category</option>
-                    {categories.map(c=><option key={c} value={c}>{c}</option>)}
+                    {dbCategories.map(c=><option key={c} value={c}>{c}</option>)}
                   </select>
                 </FormField>
 
@@ -192,7 +247,7 @@ export default function SellItem() {
                     }}
                   >
                     <option value="">Select condition</option>
-                    {CONDITIONS.slice(1).map(c=><option key={c} value={c}>{c}</option>)}
+                    {itemConditions.map(c=><option key={c} value={c}>{c}</option>)}
                   </select>
                 </FormField>
               </div>

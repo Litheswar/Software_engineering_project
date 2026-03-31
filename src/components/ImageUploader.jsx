@@ -1,14 +1,27 @@
 import { useState, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Upload, X, Image } from 'lucide-react'
+import { toast } from 'react-hot-toast'
 
 export default function ImageUploader({ images, onChange, maxImages = 5 }) {
   const [dragOver, setDragOver] = useState(false)
   const fileRef = useRef()
 
   function handleFiles(files) {
+    const validFormats = ['image/jpeg', 'image/png', 'image/webp']
+    const maxSize = 5 * 1024 * 1024 // 5MB
+
     const arr = Array.from(files).slice(0, maxImages - images.length)
     arr.forEach(file => {
+      if (!validFormats.includes(file.type)) {
+        toast.error(`Invalid format: ${file.name}. Only JPG, PNG, WEBP allowed.`)
+        return
+      }
+      if (file.size > maxSize) {
+        toast.error(`File too large: ${file.name} (Max 5MB)`)
+        return
+      }
+
       const reader = new FileReader()
       reader.onload = e => onChange(prev => [...prev, { url: e.target.result, file }])
       reader.readAsDataURL(file)

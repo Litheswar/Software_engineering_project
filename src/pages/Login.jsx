@@ -162,7 +162,7 @@ export default function Login() {
                   <Mail size={17} style={{position:'absolute',left:14,top:'50%',transform:'translateY(-50%)',color:'#9CA3AF',pointerEvents:'none'}} />
                   <input
                     type="email" value={form.email} onChange={set('email')}
-                    placeholder="you@college.edu"
+                    placeholder={role === 'admin' ? "you@eec.srmrmp.edu.in" : "you@gmail.com"}
                     className="input-field"
                     style={{paddingLeft:44,borderColor:errors.email?'#EF4444':undefined}}
                   />

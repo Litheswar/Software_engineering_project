@@ -38,11 +38,11 @@ export default function Register() {
     const e = {}
     if (!form.name.trim()) e.name = 'Full name is required'
     if (!form.email) e.email = 'Email is required'
-    else if (!/\S+@\S+\.\S+/.test(form.email)) e.email = 'Enter a valid email'
     else {
-      // Remove domain restriction for admins as requested
-      if (form.role === 'student' && !form.email.endsWith('@college.edu')) {
-        e.email = 'Student emails must end with @college.edu'
+      if (form.role === 'admin' && !form.email.endsWith('@eec.srmrmp.edu.in')) {
+        e.email = 'Admin emails must end with @eec.srmrmp.edu.in'
+      } else if (form.role === 'student' && !form.email.endsWith('@gmail.com')) {
+        e.email = 'Student emails must end with @gmail.com'
       }
     }
     
@@ -166,7 +166,7 @@ export default function Register() {
 
             <form onSubmit={handleSubmit} style={{display:'flex',flexDirection:'column',gap:16}}>
               {renderField("Full Name", <User size={16}/>, "name", "text", "Your full name")}
-              {renderField("College Email", <Mail size={16}/>, "email", "email", "you@college.edu")}
+              {renderField("College Email", <Mail size={16}/>, "email", "email", form.role === 'admin' ? "you@eec.srmrmp.edu.in" : "you@gmail.com")}
               {renderField("College Name", <GraduationCap size={16}/>, "college", "text", "e.g. NIT Trichy, IIT Madras")}
               
               {/* Account Type Selection */}

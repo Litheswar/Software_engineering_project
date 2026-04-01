@@ -235,11 +235,14 @@ export default function Navbar({ onSearch }) {
                   onMouseLeave={e=>e.currentTarget.style.borderColor='#E2E8F0'}
                 >
                   <div style={{width:30,height:30,borderRadius:'50%',
-                    background:'linear-gradient(135deg,#2563EB,#1D4ED8)',
+                    background: isAdmin ? 'linear-gradient(135deg,#DC2626,#991B1B)' : 'linear-gradient(135deg,#2563EB,#1D4ED8)',
                     display:'flex',alignItems:'center',justifyContent:'center'}}>
-                    <User size={16} color="#fff"/>
+                    {isAdmin ? <Shield size={16} color="#fff"/> : <User size={16} color="#fff"/>}
                   </div>
-                  <span style={{fontSize:14,fontWeight:500,color:'#1F2937'}}>{displayName}</span>
+                  <div style={{display:'flex',flexDirection:'column',alignItems:'flex-start'}}>
+                    <span style={{fontSize:13,fontWeight:700,color:'#1F2937'}}>{displayName}</span>
+                    {isAdmin && <span style={{fontSize:10,fontWeight:800,color:'#DC2626',textTransform:'uppercase',letterSpacing:'0.03em'}}>Admin Panel</span>}
+                  </div>
                   <ChevronDown size={14} color="#6B7280" style={{transition:'transform 0.2s',transform:dropOpen?'rotate(180deg)':'none'}} />
                 </button>
 

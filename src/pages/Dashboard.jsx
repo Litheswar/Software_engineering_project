@@ -12,7 +12,7 @@ import CategoryExplorer from '../components/CategoryExplorer'
 import MarketplaceGrid from '../components/MarketplaceGrid'
 import { useMarketplace } from '../hooks/useMarketplace'
 
-const ITEMS_PER_PAGE = 20
+const ITEMS_PER_PAGE = 12
 
 export default function Dashboard() {
   const { user } = useAuth()
@@ -37,8 +37,8 @@ export default function Dashboard() {
   const [filters, setFilters]   = useState({ category:'', condition:'', minPrice:'', maxPrice:'', sort:'newest' })
   const [page, setPage]         = useState(1)
   const [totalCount, setTotalCount] = useState(0)
-
   const [latestItems, setLatestItems] = useState([])
+  const [fetchError, setFetchError] = useState(false)
 
   // Initial data load
   useEffect(() => {
@@ -51,6 +51,7 @@ export default function Dashboard() {
   // Fetch filtered items
   useEffect(() => {
     async function loadItems() {
+      setFetchError(false)
       const result = await fetchItems({
         search,
         category: filters.category,
@@ -61,9 +62,11 @@ export default function Dashboard() {
         page,
         perPage: ITEMS_PER_PAGE
       })
-      if (result) {
+      if (result && result.data) {
         setDisplayItems(result.data)
         setTotalCount(result.count)
+      } else {
+        setFetchError(true)
       }
     }
     loadItems()
@@ -119,7 +122,12 @@ export default function Dashboard() {
                       display: 'flex', gap: 12, alignItems: 'center', cursor: 'pointer',
                       padding: 8, borderRadius: 12, transition: 'background 0.2s'
                     }} className="hover:bg-white hover:shadow-sm">
-                      <img src={item.image_url} alt="" style={{ width: 48, height: 48, borderRadius: 8, objectFit: 'cover' }} />
+                      <img 
+                        src={item.image_url} 
+                        alt="" 
+                        loading="lazy"
+                        style={{ width: 48, height: 48, borderRadius: 8, objectFit: 'cover' }} 
+                      />
                       <div>
                         <div style={{ fontWeight: 600, fontSize: 14 }}>{item.title}</div>
                         <div style={{ color: '#2563EB', fontWeight: 700, fontSize: 13 }}>₹{item.price}</div>
@@ -154,12 +162,26 @@ export default function Dashboard() {
           </aside>
 
           <ErrorBoundary>
-            <MarketplaceGrid 
-              items={displayItems} 
-              loading={loading.items} 
-              totalCount={totalCount} 
-              onClearFilters={clearFilters}
-            />
+            {fetchError ? (
+              <div style={{ flex: 1, padding: 48, background: '#FEF2F2', borderRadius: 20, textAlign: 'center', border: '1px solid #FEE2E2' }}>
+                <div style={{ fontSize: 48, marginBottom: 16 }}>⚠️</div>
+                <h3 style={{ color: '#991B1B', fontWeight: 700, marginBottom: 8 }}>Unable to load marketplace items</h3>
+                <p style={{ color: '#B91C1C', fontSize: 14, marginBottom: 20 }}>There was a problem connecting to the database. Please try again.</p>
+                <button 
+                  onClick={() => window.location.reload()} 
+                  style={{ background: '#EF4444', color: '#fff', border: 'none', padding: '10px 24px', borderRadius: 12, fontWeight: 600, cursor: 'pointer' }}
+                >
+                  Refresh Page
+                </button>
+              </div>
+            ) : (
+              <MarketplaceGrid 
+                items={displayItems} 
+                loading={loading.items} 
+                totalCount={totalCount} 
+                onClearFilters={clearFilters}
+              />
+            )}
           </ErrorBoundary>
         </div>
 

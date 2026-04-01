@@ -57,6 +57,7 @@ export default function ItemCard({ item, showStatus = false, onContact }) {
         <img
           src={item.image_url || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400&h=250&fit=crop'}
           alt={item.title}
+          loading="lazy"
           style={{
             position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
             objectFit: 'cover', transition: 'transform 0.4s ease',

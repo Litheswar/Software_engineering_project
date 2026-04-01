@@ -78,7 +78,7 @@ export default function SellItem() {
     return e
   }
 
-  const BUCKET_NAME = 'item-images'
+  const BUCKET_NAME = 'items-images'
 
   async function handleSubmit(ev) {
     ev.preventDefault()
@@ -104,25 +104,33 @@ export default function SellItem() {
       const uploadedUrls = []
       for (const [index, img] of images.entries()) {
         if (img.file) {
+          // Check file size (5MB limit)
+          if (img.file.size > 5 * 1024 * 1024) {
+            throw new Error(`Image "${img.file.name}" is too large. Maximum size is 5MB.`)
+          }
+
           toast.loading(`Uploading image ${index + 1}...`, { id: toastId })
           const fileExt = img.file.name.split('.').pop()
           const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`
           const filePath = `${user.id}/${Date.now()}_${fileName}`
           
-          console.log(`Uploading to ${BUCKET_NAME}/${filePath}`)
+          console.log(`[Submission] Uploading to ${BUCKET_NAME}/${filePath}`)
           const { data, error: uploadError } = await supabase.storage
             .from(BUCKET_NAME)
             .upload(filePath, img.file)
             
           if (uploadError) {
-            console.error("Upload error:", uploadError)
+            console.error("[Submission] Upload error:", uploadError)
             throw new Error(`Upload failed: ${uploadError.message}`)
           }
+          
+          console.log("[Submission] Upload response:", data)
           
           const { data: { publicUrl } } = supabase.storage
             .from(BUCKET_NAME)
             .getPublicUrl(filePath)
             
+          console.log("[Submission] Public URL generated:", publicUrl)
           uploadedUrls.push(publicUrl)
         }
       }

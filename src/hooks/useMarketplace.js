@@ -35,8 +35,13 @@ export function useMarketplace() {
         .select('*, seller:users(name, trust_score, college)')
         .eq('status', 'approved')
         .order('views', { ascending: false })
-        .limit(4)
-      if (error) throw error
+        .limit(12)
+      
+      console.log("[Marketplace] Fetched trending items:", data)
+      if (error) {
+        console.error("[Marketplace] Error fetching trending:", error)
+        throw error
+      }
       setTrending(data || [])
     } catch (err) {
       console.error('Error fetching trending items:', err)
@@ -46,7 +51,12 @@ export function useMarketplace() {
   }, [])
 
   const fetchRecentItems = useCallback(async () => {
-    const storedIds = JSON.parse(localStorage.getItem('recent_views') || '[]')
+    const rawStoredIds = JSON.parse(localStorage.getItem('recent_views') || '[]')
+    
+    // Filter for valid UUIDs to prevent invalid input syntax error for type uuid: "6"
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+    const storedIds = rawStoredIds.filter(id => typeof id === 'string' && uuidRegex.test(id))
+
     if (storedIds.length === 0) {
       setRecentViewed([])
       return
@@ -54,13 +64,19 @@ export function useMarketplace() {
 
     setLoading(prev => ({ ...prev, recent: true }))
     try {
+      console.log("[Marketplace] Fetching recent items for IDs:", storedIds.slice(0, 6))
       const { data, error } = await supabase
         .from('items')
         .select('*, seller:users(name, trust_score, college)')
         .in('id', storedIds.slice(0, 6))
       
-      if (error) throw error
+      if (error) {
+        console.error("[Marketplace] Error fetching recent items:", error)
+        throw error
+      }
       
+      console.log("[Marketplace] Fetched recent items:", data)
+
       // Sort to match original access order
       const sorted = storedIds
         .map(id => data?.find(item => item.id === id))
@@ -82,8 +98,13 @@ export function useMarketplace() {
         .select('*, seller:users(name, trust_score, college)')
         .eq('status', 'approved')
         .order('created_at', { ascending: false })
-        .limit(4)
-      if (error) throw error
+        .limit(12)
+      
+      console.log("[Marketplace] Fetched latest items:", data)
+      if (error) {
+        console.error("[Marketplace] Error fetching latest:", error)
+        throw error
+      }
       return data || []
     } catch (err) {
       console.error('Error fetching latest items:', err)
@@ -130,7 +151,12 @@ export function useMarketplace() {
       query = query.range(from, to)
 
       const { data, count, error } = await query
-      if (error) throw error
+      
+      console.log(`[Marketplace] Fetched items (page ${page}):`, data)
+      if (error) {
+        console.error("[Marketplace] Error fetching items:", error)
+        throw error
+      }
       
       return { data: data || [], count: count || 0 }
     } catch (err) {

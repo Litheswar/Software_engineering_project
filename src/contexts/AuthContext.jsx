@@ -42,7 +42,8 @@ export function AuthProvider({ children }) {
       .from('users')
       .select('*')
       .eq('id', userId)
-      .single()
+      .maybeSingle()
+    if (error) console.error("[Auth] Profile fetch error:", error)
     if (data) setProfile(data)
     return { data, error }
   }
@@ -57,11 +58,12 @@ export function AuthProvider({ children }) {
       .update(updates)
       .eq('id', user.id)
       .select()
-      .single()
+      .maybeSingle()
     if (!error && data) {
       setProfile(data)
       return { data, error: null }
     }
+    if (error) console.error("[Auth] Profile update error:", error)
     return { error }
   }
 

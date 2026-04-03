@@ -12,6 +12,26 @@ import { supabase } from './supabase';
 export async function createNotification(userId, type, title, message, relatedItem = null) {
   if (!userId) return;
 
+  // Prevent duplicate within 5 seconds
+  const fiveSecondsAgo = new Date(Date.now() - 5000).toISOString();
+  
+  let recentQuery = supabase
+    .from('notifications')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('type', type)
+    .eq('title', title)
+    .gte('created_at', fiveSecondsAgo)
+  
+  if (relatedItem) {
+    recentQuery = recentQuery.eq('related_item', relatedItem)
+  }
+
+  const { data: existing } = await recentQuery.maybeSingle();
+  if (existing) {
+    return; // Duplicate prevented
+  }
+
   const payload = {
     user_id: userId,
     type,

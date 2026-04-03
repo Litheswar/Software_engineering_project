@@ -45,7 +45,10 @@ export default function Navbar({ onSearch }) {
     async function fetchNotifications() {
       const { data } = await supabase
         .from('notifications')
-        .select('*')
+        .select(`
+          *,
+          related_item:items(title)
+        `)
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
         .limit(20)
@@ -95,9 +98,9 @@ export default function Navbar({ onSearch }) {
         .eq('id', id)
       setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n))
     }
-    if (related_item) {
+    if (related_item && (typeof related_item === 'string' || related_item.id)) {
       setNotifOpen(false)
-      navigate(`/items/${related_item}`)
+      navigate(`/items/${typeof related_item === 'string' ? related_item : related_item.id}`)
     }
   }
 
@@ -304,7 +307,10 @@ export default function Navbar({ onSearch }) {
                           </div>
                           <div>
                             <p style={{fontSize:13,color:'#1F2937',margin:0,fontWeight:n.is_read?500:600}}>{n.title}</p>
-                            <p style={{fontSize:13,color:'#4B5563',margin:'2px 0 0'}}>{n.message}</p>
+                            <p style={{fontSize:13,color:'#4B5563',margin:'2px 0 0'}}>
+                              {n.message}
+                              {n.related_item?.title ? `: ${n.related_item.title}` : ''}
+                            </p>
                             <p style={{fontSize:11,color:'#9CA3AF',margin:'4px 0 0'}}>{new Date(n.created_at).toLocaleString([], {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'})}</p>
                           </div>
                         </div>

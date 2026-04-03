@@ -13,6 +13,7 @@ import {
 import toast from 'react-hot-toast'
 
 import { supabase } from '../lib/supabase'
+import { increaseTrustScore } from '../lib/notifications'
 
 const TABS = [
   { id: 'timeline',  label: 'Activity Feed',  icon: <ActivityIcon size={16}/> },
@@ -81,6 +82,10 @@ export default function Activity() {
       
       setMyListings(p => p.map(i => i.id === id ? { ...i, status: 'sold' } : i))
       toast.success('Congratulations! Your item has been marked as sold.')
+      
+      // Increase trust score by 5 for a successful sale
+      await increaseTrustScore(user.id, 5)
+      
       setShowConfetti(true)
       setTimeout(() => setShowConfetti(false), 4000)
     } catch (e) {

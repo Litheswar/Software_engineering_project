@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '../contexts/AuthContext'
@@ -7,7 +7,7 @@ import toast from 'react-hot-toast'
 import { 
   Search, ShoppingBag, Bell, User, ChevronDown, 
   LogOut, Plus, Activity as ActivityIcon, TrendingUp,
-  History, Menu, X, Shield
+  History, Menu, X, Shield, Heart, AlertTriangle, MessageCircle, CheckCircle, XCircle
 } from 'lucide-react'
 
 export default function Navbar({ onSearch }) {
@@ -35,6 +35,82 @@ export default function Navbar({ onSearch }) {
     }
     fetchData()
   }, [])
+
+  const [notifications, setNotifications] = useState([])
+  const unreadCount = notifications.filter(n => !n.is_read).length
+
+  useEffect(() => {
+    if (!user) return
+
+    async function fetchNotifications() {
+      const { data } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(20)
+      if (data) setNotifications(data)
+    }
+
+    fetchNotifications()
+
+    // Real-time subscription
+    const subscription = supabase
+      .channel('public:notifications')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` }, payload => {
+        if (payload.eventType === 'INSERT') {
+          setNotifications(prev => [payload.new, ...prev].slice(0, 20))
+          toast.success(payload.new.title, { icon: '🔔' })
+        } else if (payload.eventType === 'UPDATE') {
+          setNotifications(prev => prev.map(n => n.id === payload.new.id ? payload.new : n))
+        } else if (payload.eventType === 'DELETE') {
+          setNotifications(prev => prev.filter(n => n.id !== payload.old.id))
+        }
+      })
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(subscription)
+    }
+  }, [user])
+
+  async function markAllRead() {
+    if (!user || unreadCount === 0) return
+    const { error } = await supabase
+      .from('notifications')
+      .update({ is_read: true })
+      .eq('user_id', user.id)
+      .eq('is_read', false)
+    
+    if (!error) {
+      setNotifications(prev => prev.map(n => ({ ...n, is_read: true })))
+    }
+  }
+
+  async function markAsRead(id, is_read, related_item) {
+    if (!is_read) {
+      await supabase
+        .from('notifications')
+        .update({ is_read: true })
+        .eq('id', id)
+      setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n))
+    }
+    if (related_item) {
+      setNotifOpen(false)
+      navigate(`/items/${related_item}`)
+    }
+  }
+
+  const getNotifIcon = (type) => {
+    switch(type) {
+      case 'wishlist': return <Heart size={14} color="#EC4899" />
+      case 'report': return <AlertTriangle size={14} color="#EF4444" />
+      case 'message': return <MessageCircle size={14} color="#3B82F6" />
+      case 'item_approved': return <CheckCircle size={14} color="#10B981" />
+      case 'item_rejected': return <XCircle size={14} color="#EF4444" />
+      default: return <Bell size={14} color="#6B7280" />
+    }
+  }
 
   const suggestions = [
     ...categories.filter(c => c.toLowerCase().includes(query.toLowerCase())).slice(0, 2).map(c => ({ type: 'category', text: c })),
@@ -183,11 +259,11 @@ export default function Navbar({ onSearch }) {
                   <Bell size={18} color="#6B7280" />
                   <span style={{
                     position:'absolute',top:-4,right:-4,
-                    width:16,height:16,borderRadius:'50%',
+                    width:18,height:18,borderRadius:'50%',
                     background:'#EF4444',color:'#fff',
                     fontSize:10,fontWeight:700,
-                    display:'flex',alignItems:'center',justifyContent:'center',
-                  }}>3</span>
+                    display: unreadCount > 0 ? 'flex' : 'none',alignItems:'center',justifyContent:'center',
+                  }}>{unreadCount > 9 ? '9+' : unreadCount}</span>
                 </button>
                 <AnimatePresence>
                 {notifOpen && (
@@ -197,28 +273,43 @@ export default function Navbar({ onSearch }) {
                     exit={{opacity:0,y:8,scale:0.95}}
                     transition={{duration:0.15}}
                     style={{
-                      position:'absolute',right:0,top:48,width:300,
+                      position:'absolute',right:0,top:48,width:320,
                       background:'#fff',borderRadius:16,
                       boxShadow:'0 20px 40px rgba(0,0,0,0.15)',
                       border:'1px solid #E2E8F0',zIndex:200,overflow:'hidden',
+                      maxHeight: '400px', display: 'flex', flexDirection: 'column'
                     }}
                   >
-                    <div style={{padding:'14px 18px',borderBottom:'1px solid #F1F5F9',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                    <div style={{padding:'14px 18px',borderBottom:'1px solid #F1F5F9',display:'flex',justifyContent:'space-between',alignItems:'center', flexShrink: 0}}>
                       <span style={{fontWeight:600,fontSize:15}}>Notifications</span>
-                      <span style={{fontSize:12,color:'#2563EB',cursor:'pointer'}} onClick={()=>setNotifOpen(false)}>Mark all read</span>
+                      {unreadCount > 0 && <span style={{fontSize:12,color:'#2563EB',cursor:'pointer',fontWeight:500}} onClick={markAllRead}>Mark all read</span>}
                     </div>
-                    {[{msg:'Priya K. wants to buy your MacBook',time:'2m ago'},
-                      {msg:'Your item was approved by admin',time:'1h ago'},
-                      {msg:'Deal completed on Calculator',time:'2d ago'}
-                    ].map((n,i)=>(
-                      <div key={i} style={{padding:'12px 18px',borderBottom:'1px solid #F8FAFC',cursor:'pointer',transition:'background 0.15s'}}
-                        onMouseEnter={e=>e.currentTarget.style.background='#F8FAFC'}
-                        onMouseLeave={e=>e.currentTarget.style.background='#fff'}
-                      >
-                        <p style={{fontSize:13,color:'#1F2937',margin:0}}>{n.msg}</p>
-                        <p style={{fontSize:12,color:'#9CA3AF',margin:'3px 0 0'}}>{n.time}</p>
-                      </div>
-                    ))}
+                    <div style={{overflowY: 'auto', flex: 1}}>
+                      {notifications.length === 0 ? (
+                        <div style={{padding:'30px 20px',textAlign:'center',color:'#9CA3AF'}}>
+                          <Bell size={32} style={{margin:'0 auto 10px',opacity:0.5}}/>
+                          <p style={{margin:0,fontSize:14}}>No notifications yet</p>
+                        </div>
+                      ) : notifications.map((n) => (
+                        <div key={n.id} onClick={() => markAsRead(n.id, n.is_read, n.related_item)}
+                          style={{
+                            padding:'12px 18px',borderBottom:'1px solid #F8FAFC',cursor:'pointer',transition:'background 0.15s',
+                            background: n.is_read ? '#fff' : '#F0F9FF', display: 'flex', gap: 12
+                          }}
+                          onMouseEnter={e=>e.currentTarget.style.background=n.is_read?'#F8FAFC':'#E0F2FE'}
+                          onMouseLeave={e=>e.currentTarget.style.background=n.is_read?'#fff':'#F0F9FF'}
+                        >
+                          <div style={{width: 32, height: 32, borderRadius: '50%', background: '#fff', border: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 2}}>
+                            {getNotifIcon(n.type)}
+                          </div>
+                          <div>
+                            <p style={{fontSize:13,color:'#1F2937',margin:0,fontWeight:n.is_read?500:600}}>{n.title}</p>
+                            <p style={{fontSize:13,color:'#4B5563',margin:'2px 0 0'}}>{n.message}</p>
+                            <p style={{fontSize:11,color:'#9CA3AF',margin:'4px 0 0'}}>{new Date(n.created_at).toLocaleString([], {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'})}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </motion.div>
                 )}
                 </AnimatePresence>

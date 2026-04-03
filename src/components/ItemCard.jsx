@@ -142,14 +142,22 @@ const ItemCard = memo(({ item, showStatus = false, onContact }) => {
           marginTop: 16, paddingTop: 12, borderTop: '1px solid #F1F5F9',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{
-              width: 28, height: 28, borderRadius: '50%',
-              background: 'linear-gradient(135deg, #3B82F6, #2563EB)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 11, color: '#fff', fontWeight: 800,
-            }}>
-              {(item.seller?.name || 'U').charAt(0).toUpperCase()}
-            </div>
+            {item.seller?.avatar_url ? (
+              <img 
+                src={item.seller.avatar_url} 
+                alt={item.seller?.name}
+                style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover' }}
+              />
+            ) : (
+              <div style={{
+                width: 28, height: 28, borderRadius: '50%',
+                background: 'linear-gradient(135deg, #3B82F6, #2563EB)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 11, color: '#fff', fontWeight: 800,
+              }}>
+                {(item.seller?.name || 'U').charAt(0).toUpperCase()}
+              </div>
+            )}
             <div>
               <p style={{ fontSize: 12, fontWeight: 700, color: '#334155', margin: 0 }}>{item.seller?.name || 'Anonymous'}</p>
               {item.seller?.college && (

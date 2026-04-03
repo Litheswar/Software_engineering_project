@@ -8,6 +8,7 @@ import { CATEGORIES } from '../lib/mockData'
 import { CheckCircle, XCircle, Flag, Search, Users, Package, TrendingUp, AlertTriangle, ShieldCheck, Filter, Loader2, Calendar, User, ShoppingBag } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { supabase } from '../lib/supabase'
+import { createNotification, decreaseTrustScore } from '../lib/notifications'
 
 export default function AdminPanel() {
   const [items, setItems]     = useState([])
@@ -69,6 +70,29 @@ export default function AdminPanel() {
         .eq('id', id)
 
       if (error) throw error
+
+      // Notification Logic
+      const itemActioned = items.find(i => i.id === id)
+      if (itemActioned && itemActioned.seller_id) {
+         if (newStatus === 'approved') {
+            await createNotification(
+               itemActioned.seller_id,
+               'item_approved',
+               'Item Approved ✔',
+               `Your listing '${itemActioned.title}' has been approved and is now live!`,
+               itemActioned.id
+            )
+         } else if (newStatus === 'rejected') {
+            await createNotification(
+               itemActioned.seller_id,
+               'item_rejected',
+               'Item Rejected ❌',
+               `Your listing '${itemActioned.title}' was rejected. Reason: ${rejectReason || 'Violates community guidelines.'}`,
+               itemActioned.id
+            )
+            await decreaseTrustScore(itemActioned.seller_id, 10)
+         }
+      }
 
       setItems(prev => prev.map(i => i.id === id ? { ...i, status: newStatus, moderation_note: type === 'reject' ? rejectReason : null } : i))
       toast.success(`Item ${newStatus} successfully!`)

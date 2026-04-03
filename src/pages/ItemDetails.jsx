@@ -12,6 +12,7 @@ import {
   Heart, MessageCircle, Flag, Shield, 
   CheckCircle, Star, Calendar, Tag, Eye
 } from 'lucide-react'
+import { createNotification, increaseTrustScore, decreaseTrustScore } from '../lib/notifications'
 
 const conditionColors = {
   'New': { bg: '#DCFCE7', color: '#15803D' },
@@ -27,6 +28,7 @@ export default function ItemDetails() {
 
   const [item, setItem]       = useState(null)
   const [loading, setLoading] = useState(true)
+  const [actionLoading, setActionLoading] = useState(false)
   const [liked, setLiked]     = useState(false)
   const [mainImage, setMainImage] = useState(null)
   const [pop, setPop]         = useState(false)
@@ -81,7 +83,7 @@ export default function ItemDetails() {
             .select('id')
             .eq('user_id', user.id)
             .eq('item_id', data.id)
-            .single()
+            .maybeSingle()
           if (wish) setLiked(true)
         }
       }
@@ -124,6 +126,9 @@ export default function ItemDetails() {
 
   async function toggleLike() {
     if (!user) { navigate('/login'); return }
+    if (actionLoading) return
+    
+    setActionLoading(true)
     const newLiked = !liked
     setLiked(newLiked)
     setPop(true)
@@ -133,26 +138,68 @@ export default function ItemDetails() {
       if (newLiked) {
         await supabase.from('wishlist').insert({ user_id: user.id, item_id: item.id })
         toast.success('Added to wishlist ❤️')
+        
+        if (item.seller_id !== user.id) {
+          await createNotification(
+            item.seller_id, 
+            'wishlist', 
+            'Someone saved your item ❤️', 
+            `Your item '${item.title}' was added to a wishlist.`, 
+            item.id
+          )
+          await increaseTrustScore(item.seller_id, 1)
+        }
       } else {
         await supabase.from('wishlist').delete().eq('user_id', user.id).eq('item_id', item.id)
         toast.success('Removed from wishlist')
       }
     } catch (e) {
       toast.error('Failed to update wishlist')
+      setLiked(!newLiked) // Revert state on error
     }
+    setActionLoading(false)
   }
 
   async function sendMessage() {
-    if (!message.trim()) return
+    if (!message.trim() || actionLoading) return
+    setActionLoading(true)
     // Simple message simulation for now as requested
     toast.success("Message sent! Seller will respond soon.")
+    
+    if (item.seller_id !== user.id) {
+      await createNotification(
+        item.seller_id,
+        'message',
+        'New Message 💬',
+        `${user.name || 'A user'} sent you a message regarding '${item.title}'.`,
+        item.id
+      )
+    }
+
     setMessage('')
     setContactOpen(false)
+    setActionLoading(false)
   }
 
   async function report(reason) {
     if (!user) { navigate('/login'); return }
+    if (actionLoading) return
+    setActionLoading(true)
     try {
+      const { data: existing } = await supabase
+        .from('reports')
+        .select('id')
+        .eq('item_id', item.id)
+        .eq('reporter_id', user.id)
+        .maybeSingle()
+
+      if (existing) {
+        toast.error('You already reported this item')
+        setReportOpen(false)
+        setActionLoading(false)
+        return
+      }
+
       const { error } = await supabase.from('reports').insert({
         item_id: item.id,
         reporter_id: user.id,
@@ -160,10 +207,22 @@ export default function ItemDetails() {
       })
       if (error) throw error
       toast.success('Report submitted. Our team will review this listing.')
+
+      if (item.seller_id !== user.id) {
+        await createNotification(
+          item.seller_id,
+          'report',
+          'Your item was reported ⚠️',
+          `A user reported your listing '${item.title}'. Admin will review it.`,
+          item.id
+        )
+        await decreaseTrustScore(item.seller_id, 5)
+      }
     } catch (e) {
       toast.error('Failed to submit report')
     }
     setReportOpen(false)
+    setActionLoading(false)
   }
 
   return (
@@ -262,7 +321,7 @@ export default function ItemDetails() {
                 <div style={{padding:14,background:'#F3F4F6',borderRadius:12,textAlign:'center',color:'#6B7280',fontWeight:600}}>This item has been sold</div>
               )}
               <div style={{display:'flex',gap:10}}>
-                <button onClick={toggleLike} className={pop?'heart-pop':''} style={{
+                <button disabled={actionLoading} onClick={toggleLike} className={pop?'heart-pop':''} style={{
                   flex:1,padding:'11px',borderRadius:12,border:'2px solid',
                   borderColor:liked?'#EF4444':'#E2E8F0',
                   background:liked?'#FEF2F2':'#fff',
@@ -368,8 +427,8 @@ export default function ItemDetails() {
           style={{resize:'vertical',lineHeight:1.6}}
         />
         <div style={{display:'flex',gap:10,marginTop:16}}>
-          <button className="btn-secondary" onClick={()=>setContactOpen(false)} style={{flex:1,justifyContent:'center'}}>Cancel</button>
-          <button className="btn-primary" onClick={sendMessage} style={{flex:2,justifyContent:'center'}} disabled={!message.trim()}>
+          <button className="btn-secondary" onClick={()=>setContactOpen(false)} style={{flex:1,justifyContent:'center'}} disabled={actionLoading}>Cancel</button>
+          <button className="btn-primary" onClick={sendMessage} style={{flex:2,justifyContent:'center'}} disabled={!message.trim() || actionLoading}>
             <MessageCircle size={16}/> Send Message
           </button>
         </div>
@@ -379,7 +438,7 @@ export default function ItemDetails() {
       <ModalDialog isOpen={reportOpen} onClose={()=>setReportOpen(false)} title="Report This Listing">
         <p style={{color:'#6B7280',fontSize:14,marginBottom:16}}>Why are you reporting this item?</p>
         {['Fake or misleading listing','Wrong/false information','Prohibited item','Spam or duplicate','Other'].map(r=>(
-          <button key={r} onClick={()=>report(r)} style={{
+          <button key={r} onClick={()=>report(r)} disabled={actionLoading} style={{
             display:'block',width:'100%',textAlign:'left',padding:'12px 16px',
             marginBottom:8,border:'2px solid #E2E8F0',borderRadius:12,
             background:'#fff',cursor:'pointer',fontSize:14,color:'#374151',

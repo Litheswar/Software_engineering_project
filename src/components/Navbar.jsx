@@ -311,7 +311,7 @@ export default function Navbar({ onSearch }) {
                             <p style={{fontSize:13,color:'#4B5563',margin:'2px 0 0'}}>
                               {n.message}
                             </p>
-                            <p style={{fontSize:11,color:'#9CA3AF',margin:'4px 0 0'}}>{n.created_at ? formatDistanceToNow(new Date(n.created_at), {addSuffix: true}) : 'Just now'}</p>
+                            <p style={{fontSize:11,color:'#9CA3AF',margin:'4px 0 0'}}>{n.created_at ? formatDistanceToNow(new Date(n.created_at.endsWith('Z') || n.created_at.includes('+') ? n.created_at : n.created_at + 'Z'), {addSuffix: true}) : 'Just now'}</p>
                           </div>
                         </div>
                       ))}

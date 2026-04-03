@@ -119,7 +119,11 @@ export default function Activity() {
     }
 
     // Sort descending
-    timeline.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+    timeline.sort((a, b) => {
+      const dateA = new Date(a.created_at?.endsWith('Z') || a.created_at?.includes('+') ? a.created_at : a.created_at + 'Z')
+      const dateB = new Date(b.created_at?.endsWith('Z') || b.created_at?.includes('+') ? b.created_at : b.created_at + 'Z')
+      return dateB - dateA
+    })
     setTimelineList(timeline)
 
     setLoading(false)
@@ -261,7 +265,7 @@ export default function Activity() {
                         </div>
                         <p style={{fontSize:15,fontWeight:600,color:'#1F2937',margin:'0 0 4px',lineHeight:1.4}}>{act.content}</p>
                         <span style={{fontSize:13,color:'#9CA3AF',fontWeight:500}}>
-                          {act.created_at ? formatDistanceToNow(new Date(act.created_at), { addSuffix: true }) : 'Just now'}
+                          {act.created_at ? formatDistanceToNow(new Date(act.created_at.endsWith('Z') || act.created_at.includes('+') ? act.created_at : act.created_at + 'Z'), { addSuffix: true }) : 'Just now'}
                         </span>
                       </div>
                     )

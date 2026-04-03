@@ -9,6 +9,7 @@ import {
   LogOut, Plus, Activity as ActivityIcon, TrendingUp,
   History, Menu, X, Shield, Heart, AlertTriangle, MessageCircle, CheckCircle, XCircle
 } from 'lucide-react'
+import { formatDistanceToNow } from "date-fns"
 
 export default function Navbar({ onSearch }) {
   const { user, profile, signOut, isAdmin } = useAuth()
@@ -309,9 +310,8 @@ export default function Navbar({ onSearch }) {
                             <p style={{fontSize:13,color:'#1F2937',margin:0,fontWeight:n.is_read?500:600}}>{n.title}</p>
                             <p style={{fontSize:13,color:'#4B5563',margin:'2px 0 0'}}>
                               {n.message}
-                              {n.related_item?.title ? `: ${n.related_item.title}` : ''}
                             </p>
-                            <p style={{fontSize:11,color:'#9CA3AF',margin:'4px 0 0'}}>{new Date(n.created_at).toLocaleString([], {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'})}</p>
+                            <p style={{fontSize:11,color:'#9CA3AF',margin:'4px 0 0'}}>{n.created_at ? formatDistanceToNow(new Date(n.created_at), {addSuffix: true}) : 'Just now'}</p>
                           </div>
                         </div>
                       ))}

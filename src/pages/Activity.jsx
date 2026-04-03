@@ -5,12 +5,12 @@ import Navbar from '../components/Navbar'
 import PageWrapper from '../components/PageWrapper'
 import ModalDialog from '../components/ModalDialog'
 import GoBack from '../components/GoBack'
-import { MOCK_ITEMS, MOCK_ACTIVITY_TIMELINE } from '../lib/mockData'
 import {
   Package, Heart, MessageCircle, Star, Edit3, Trash2,
-  CheckCircle, XCircle, Phone, Activity as ActivityIcon, ThumbsUp
+  CheckCircle, XCircle, Phone, Activity as ActivityIcon, ThumbsUp, AlertTriangle, Bell
 } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { formatDistanceToNow } from 'date-fns'
 
 import { supabase } from '../lib/supabase'
 import { increaseTrustScore } from '../lib/notifications'
@@ -44,6 +44,7 @@ export default function Activity() {
   const [replyModal, setReplyModal]   = useState(null)
   const [reply, setReply]         = useState('')
   const [showConfetti, setShowConfetti] = useState(false)
+  const [timelineList, setTimelineList] = useState([])
 
   useEffect(() => {
     if (!user) return
@@ -59,6 +60,13 @@ export default function Activity() {
       .select('*')
       .eq('seller_id', user.id)
       .order('created_at', { ascending: false })
+      
+    // Fetch notifications related to user
+    const { data: notifications } = await supabase
+      .from('notifications')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
     
     // Fetch user's wishlist (joined with items)
     const { data: wishlistData } = await supabase
@@ -68,6 +76,52 @@ export default function Activity() {
 
     if (listings) setMyListings(listings)
     if (wishlistData) setMyWishlist(wishlistData.map(w => w.item).filter(i => i !== null))
+
+    // Build unified timeline
+    let timeline = []
+
+    if (listings) {
+      listings.forEach(item => {
+        timeline.push({
+          id: `item_posted_${item.id}`,
+          type: 'posted',
+          content: `You posted "${item.title}"`,
+          created_at: item.created_at
+        })
+        if (item.status === 'sold') {
+          timeline.push({
+            id: `item_sold_${item.id}`,
+            type: 'sold',
+            content: `Your item "${item.title}" was marked as sold`,
+            created_at: item.updated_at || item.created_at
+          })
+        }
+      })
+    }
+
+    if (notifications) {
+      notifications.forEach(n => {
+        let typeStr
+        if (n.type === 'item_approved' || n.type === 'approved') typeStr = 'approved'
+        else if (n.type === 'item_rejected' || n.type === 'rejected') typeStr = 'rejected'
+        else if (n.type === 'wishlist') typeStr = 'wishlist'
+        else if (n.type === 'report') typeStr = 'report'
+        else if (n.type === 'message') typeStr = 'message'
+        else typeStr = 'bell'
+
+        timeline.push({
+          id: `notif_${n.id}`,
+          type: typeStr,
+          content: n.message || n.title,
+          created_at: n.created_at
+        })
+      })
+    }
+
+    // Sort descending
+    timeline.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+    setTimelineList(timeline)
+
     setLoading(false)
   }
 
@@ -184,15 +238,34 @@ export default function Activity() {
               <div style={{background:'#fff',borderRadius:16,padding:'24px',border:'1px solid #F1F5F9',boxShadow:'0 2px 8px rgba(0,0,0,0.03)'}}>
                 <div style={{position:'relative',paddingLeft:24}}>
                   <div style={{position:'absolute',left:0,top:10,bottom:10,width:2,background:'#E2E8F0',borderRadius:2}}></div>
-                  {MOCK_ACTIVITY_TIMELINE.map((act, i) => (
-                    <div key={act.id} style={{position:'relative',marginBottom:i===MOCK_ACTIVITY_TIMELINE.length-1?0:28}}>
-                      <div style={{position:'absolute',left:-34,top:2,width:20,height:20,borderRadius:'50%',background:'#fff',border:`2px solid ${act.type==='message'?'#3B82F6':act.type==='wishlist'?'#EC4899':act.type==='sold'?'#10B981':act.type==='approved'?'#F59E0B':'#6B7280'}`,display:'flex',alignItems:'center',justifyContent:'center',zIndex:2}}>
-                        <div style={{width:8,height:8,borderRadius:'50%',background:act.type==='message'?'#3B82F6':act.type==='wishlist'?'#EC4899':act.type==='sold'?'#10B981':act.type==='approved'?'#F59E0B':'#6B7280'}}/>
+                  {timelineList.length === 0 && !loading && (
+                    <p style={{color:'#6B7280',fontSize:14,margin:0,padding:'20px 0',textAlign:'center'}}>No activity found yet.</p>
+                  )}
+                  {timelineList.map((act, i) => {
+                    let displayIcon = <ActivityIcon size={12} color="#6B7280"/>
+                    let color = '#6B7280'
+                    let borderCol = '#E2E8F0'
+                    
+                    if (act.type === 'posted') { displayIcon = <Package size={12} color="#3B82F6"/>; color='#3B82F6'; borderCol = '#BFDBFE' }
+                    if (act.type === 'sold') { displayIcon = <CheckCircle size={12} color="#10B981"/>; color='#10B981'; borderCol = '#A7F3D0' }
+                    if (act.type === 'approved') { displayIcon = <CheckCircle size={12} color="#F59E0B"/>; color='#F59E0B'; borderCol = '#FDE68A' }
+                    if (act.type === 'rejected' || act.type === 'report') { displayIcon = <AlertTriangle size={12} color="#EF4444"/>; color='#EF4444'; borderCol = '#FECACA' }
+                    if (act.type === 'wishlist') { displayIcon = <Heart size={12} color="#EC4899"/>; color='#EC4899'; borderCol = '#FBCFE8' }
+                    if (act.type === 'message') { displayIcon = <MessageCircle size={12} color="#8B5CF6"/>; color='#8B5CF6'; borderCol = '#DDD6FE' }
+                    if (act.type === 'bell') { displayIcon = <Bell size={12} color="#6B7280"/>; color='#6B7280'; borderCol = '#E2E8F0' }
+
+                    return (
+                      <div key={act.id} style={{position:'relative',marginBottom:i===timelineList.length-1?0:28}}>
+                        <div style={{position:'absolute',left:-34,top:0,width:20,height:20,borderRadius:'50%',background:'#fff',border:`2px solid ${borderCol}`,display:'flex',alignItems:'center',justifyContent:'center',zIndex:2}}>
+                          {displayIcon}
+                        </div>
+                        <p style={{fontSize:15,fontWeight:600,color:'#1F2937',margin:'0 0 4px',lineHeight:1.4}}>{act.content}</p>
+                        <span style={{fontSize:13,color:'#9CA3AF',fontWeight:500}}>
+                          {act.created_at ? formatDistanceToNow(new Date(act.created_at), { addSuffix: true }) : 'Just now'}
+                        </span>
                       </div>
-                      <p style={{fontSize:15,fontWeight:600,color:'#1F2937',margin:'0 0 4px',lineHeight:1.4}}>{act.content}</p>
-                      <span style={{fontSize:13,color:'#9CA3AF',fontWeight:500}}>{act.time}</span>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               </div>
             </motion.div>

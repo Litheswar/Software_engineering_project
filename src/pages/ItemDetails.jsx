@@ -140,11 +140,17 @@ export default function ItemDetails() {
         toast.success('Added to wishlist ❤️')
         
         if (item.seller_id !== user.id) {
+          const { data: sender } = await supabase
+            .from("users")
+            .select("name")
+            .eq("id", user.id)
+            .single()
+
           await createNotification(
             item.seller_id, 
             'wishlist', 
-            'Someone saved your item ❤️', 
-            `Your item '${item.title}' was added to a wishlist.`, 
+            'Item saved ❤️', 
+            `${sender?.name || 'Someone'} added your item "${item.title}" to their wishlist`, 
             item.id
           )
           await increaseTrustScore(item.seller_id, 1)
@@ -167,11 +173,17 @@ export default function ItemDetails() {
     toast.success("Message sent! Seller will respond soon.")
     
     if (item.seller_id !== user.id) {
+      const { data: sender } = await supabase
+        .from("users")
+        .select("name")
+        .eq("id", user.id)
+        .single()
+
       await createNotification(
         item.seller_id,
         'message',
         'New Message 💬',
-        `${user.name || 'A user'} sent you a message regarding '${item.title}'.`,
+        `${sender?.name || 'Someone'} sent you a message regarding "${item.title}"`,
         item.id
       )
     }
@@ -209,11 +221,17 @@ export default function ItemDetails() {
       toast.success('Report submitted. Our team will review this listing.')
 
       if (item.seller_id !== user.id) {
+        const { data: sender } = await supabase
+          .from("users")
+          .select("name")
+          .eq("id", user.id)
+          .single()
+
         await createNotification(
           item.seller_id,
           'report',
-          'Your item was reported ⚠️',
-          `A user reported your listing '${item.title}'. Admin will review it.`,
+          'Item reported ⚠️',
+          `${sender?.name || 'Someone'} reported your item "${item.title}"`,
           item.id
         )
         await decreaseTrustScore(item.seller_id, 5)

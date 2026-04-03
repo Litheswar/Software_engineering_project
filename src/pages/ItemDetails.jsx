@@ -10,7 +10,7 @@ import { supabase } from '../lib/supabase'
 import toast from 'react-hot-toast'
 import { 
   Heart, MessageCircle, Flag, Shield, 
-  CheckCircle, Star, Calendar, Tag
+  CheckCircle, Star, Calendar, Tag, Eye
 } from 'lucide-react'
 
 const conditionColors = {
@@ -28,6 +28,7 @@ export default function ItemDetails() {
   const [item, setItem]       = useState(null)
   const [loading, setLoading] = useState(true)
   const [liked, setLiked]     = useState(false)
+  const [mainImage, setMainImage] = useState(null)
   const [pop, setPop]         = useState(false)
   const [reportOpen, setReportOpen] = useState(false)
   const [contactOpen, setContactOpen] = useState(false)
@@ -40,12 +41,20 @@ export default function ItemDetails() {
       setLoading(true)
       const { data, error } = await supabase
         .from('items')
-        .select('*, seller:users(*)')
+        .select('*, seller:users(name, college, trust_score, avatar_url)')
         .eq('id', id)
+        .eq('status', 'approved')
         .single()
       
-      if (data) {
+      if (data && !error) {
         setItem(data)
+        setMainImage(data.image_url)
+
+        // Increment views
+        await supabase
+          .from('items')
+          .update({ views: (data.views || 0) + 1 })
+          .eq('id', id)
         
         // Fetch similar items
         const { data: similar } = await supabase
@@ -170,20 +179,36 @@ export default function ItemDetails() {
 
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:40,alignItems:'start'}} className="item-grid">
           {/* LEFT: Image Gallery */}
-          <div>
-            <div style={{position:'relative',borderRadius:20,overflow:'hidden',background:'#F8FAFC',aspectRatio:'4/3'}}>
+          <div style={{display:'flex',flexDirection:'column',gap:16}}>
+            <div style={{position:'relative',borderRadius:20,overflow:'hidden',background:'#F8FAFC',aspectRatio:'4/3',cursor:'zoom-in'}}>
               <motion.img
                 initial={{opacity:0}} animate={{opacity:1}} transition={{duration:0.3}}
-                src={item.image_url || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600&h=400&fit=crop'}
+                src={mainImage || item.image_url || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600&h=400&fit=crop'}
                 alt={item.title}
-                style={{width:'100%',height:'100%',objectFit:'cover'}}
+                style={{width:'100%',height:'100%',objectFit:'cover',transition:'transform 0.4s ease'}}
+                onMouseEnter={e=>e.currentTarget.style.transform='scale(1.15)'}
+                onMouseLeave={e=>e.currentTarget.style.transform='scale(1)'}
               />
-              {item.status === 'sold' && (
-                <div style={{position:'absolute',inset:0,background:'rgba(0,0,0,0.45)',display:'flex',alignItems:'center',justifyContent:'center'}}>
-                  <span style={{background:'#9CA3AF',color:'#fff',padding:'8px 24px',borderRadius:999,fontWeight:700,fontSize:18}}>SOLD</span>
-                </div>
-              )}
             </div>
+            
+            {/* Thumbnail strip */}
+            {(item.images && item.images.length > 0) ? (
+              <div style={{display:'flex',gap:12,overflowX:'auto',paddingBottom:8,scrollbarWidth:'none'}}>
+                {item.images.map((img, idx) => (
+                  <button 
+                    key={idx}
+                    onClick={() => setMainImage(img)}
+                    style={{
+                      width: 80, height: 80, borderRadius: 12, flexShrink: 0, 
+                      padding: 0, border: mainImage === img ? '3px solid #2563EB' : '2px solid transparent',
+                      overflow: 'hidden', cursor: 'pointer', transition: 'all 0.2s', background: '#F8FAFC'
+                    }}
+                  >
+                    <img src={img} alt={`Thumbnail ${idx}`} style={{width:'100%',height:'100%',objectFit:'cover',opacity: mainImage === img ? 1 : 0.6}} />
+                  </button>
+                ))}
+              </div>
+            ) : null}
           </div>
 
           {/* RIGHT: Item Info */}
@@ -217,6 +242,7 @@ export default function ItemDetails() {
                 { icon:<Calendar size={15}/>, label:'Posted', value: new Date(item.created_at).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'}) },
                 { icon:<Tag size={15}/>, label:'Condition', value: item.condition },
                 { icon:<Shield size={15}/>, label:'Status', value: item.status.charAt(0).toUpperCase()+item.status.slice(1) },
+                { icon:<Eye size={15}/>, label:'Views', value: (item.views || 0) + 1 },
               ].map(m => (
                 <div key={m.label} style={{display:'flex',alignItems:'center',gap:10,color:'#6B7280',fontSize:14}}>
                   {m.icon}
@@ -315,7 +341,7 @@ export default function ItemDetails() {
             <h2 style={{ fontSize: 22, fontWeight: 800, color: '#1F2937', marginBottom: 20 }}>Similar Items</h2>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 20 }}>
               {similarItems.map(sItem => (
-                <div key={sItem.id} onClick={() => navigate(`/item/${sItem.id}`)} style={{ 
+                <div key={sItem.id} onClick={() => navigate(`/items/${sItem.id}`)} style={{ 
                   background: '#fff', borderRadius: 16, overflow: 'hidden', border: '1px solid #F1F5F9',
                   cursor: 'pointer', transition: 'transform 0.2s', boxShadow: '0 4px 12px rgba(0,0,0,0.03)'
                 }} onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-4px)'} onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}>

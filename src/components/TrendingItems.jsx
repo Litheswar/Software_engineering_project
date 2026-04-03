@@ -37,7 +37,7 @@ export default function TrendingItems({ items, loading }) {
           items.map(item => (
             <div 
               key={item.id} 
-              onClick={() => navigate(`/item/${item.id}`)} 
+              onClick={() => navigate(`/items/${item.id}`)} 
               style={{
                 minWidth: 260, 
                 background: '#fff', 

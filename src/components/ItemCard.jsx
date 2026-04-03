@@ -40,7 +40,7 @@ const ItemCard = memo(({ item, showStatus = false, onContact }) => {
         borderColor: '#3B82F6'
       }}
       transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-      onClick={() => navigate(`/item/${item.id}`)}
+      onClick={() => navigate(`/items/${item.id}`)}
       style={{
         background: '#fff',
         borderRadius: 18,

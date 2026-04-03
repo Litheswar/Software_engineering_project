@@ -149,7 +149,7 @@ export default function Navbar({ onSearch }) {
                     >
                       <p style={{fontSize:11,fontWeight:700,color:'#9CA3AF',padding:'4px 8px 8px',textTransform:'uppercase',letterSpacing:'0.05em',margin:0,borderBottom:'1px solid #F1F5F9',marginBottom:8}}>Popular Today</p>
                       {trending.map(i => (
-                        <Link key={i.id} onClick={()=>setTrendOpen(false)} to={`/item/${i.id}`} style={{display:'flex',alignItems:'center',gap:10,padding:8,borderRadius:8,textDecoration:'none',color:'#1F2937',transition:'background 0.15s'}} onMouseEnter={e=>e.currentTarget.style.background='#F8FAFC'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                        <Link key={i.id} onClick={()=>setTrendOpen(false)} to={`/items/${i.id}`} style={{display:'flex',alignItems:'center',gap:10,padding:8,borderRadius:8,textDecoration:'none',color:'#1F2937',transition:'background 0.15s'}} onMouseEnter={e=>e.currentTarget.style.background='#F8FAFC'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
                           <img src={i.image_url} alt="" style={{width:32,height:32,borderRadius:6,objectFit:'cover'}}/>
                           <div style={{minWidth:0}}>
                             <p style={{fontSize:13,fontWeight:600,margin:0,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{i.title}</p>

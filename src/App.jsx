@@ -40,7 +40,7 @@ function AnimatedRoutes() {
         <Route path="/login"     element={<Login />} />
         <Route path="/register"  element={<Register />} />
         <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-        <Route path="/item/:id"  element={<ItemDetails />} />
+        <Route path="/items/:id"  element={<ItemDetails />} />
         <Route path="/sell"      element={<ProtectedRoute><SellItem /></ProtectedRoute>} />
         <Route path="/activity"  element={<ProtectedRoute><Activity /></ProtectedRoute>} />
         <Route path="/profile"   element={<ProtectedRoute><Profile /></ProtectedRoute>} />

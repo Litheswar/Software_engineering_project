@@ -290,7 +290,7 @@ export default function Activity() {
               ) : (
                 <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(240px,1fr))',gap:20}}>
                   {myWishlist.map(item => (
-                    <div key={item.id} onClick={() => navigate(`/item/${item.id}`)} style={{background:'#fff',borderRadius:16,overflow:'hidden',border:'1px solid #F1F5F9',boxShadow:'0 2px 8px rgba(0,0,0,0.06)',cursor:'pointer'}}>
+                    <div key={item.id} onClick={() => navigate(`/items/${item.id}`)} style={{background:'#fff',borderRadius:16,overflow:'hidden',border:'1px solid #F1F5F9',boxShadow:'0 2px 8px rgba(0,0,0,0.06)',cursor:'pointer'}}>
                       <img src={item.image_url} alt="" style={{width:'100%',height:160,objectFit:'cover'}}/>
                       <div style={{padding:14}}>
                         <p style={{fontWeight:700,fontSize:14,margin:'0 0 4px'}}>{item.title}</p>

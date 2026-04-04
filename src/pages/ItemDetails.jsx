@@ -33,8 +33,6 @@ export default function ItemDetails() {
   const [mainImage, setMainImage] = useState(null)
   const [pop, setPop]         = useState(false)
   const [reportOpen, setReportOpen] = useState(false)
-  const [contactOpen, setContactOpen] = useState(false)
-  const [message, setMessage] = useState('')
   const [pricePulse, setPricePulse] = useState(false)
   const [similarItems, setSimilarItems] = useState([])
 
@@ -121,7 +119,7 @@ export default function ItemDetails() {
 
   function handleContact() {
     if (!user) { navigate('/login'); return }
-    setContactOpen(true)
+    navigate(`/chat/${item.id}/${item.seller_id}`)
   }
 
   async function toggleLike() {
@@ -166,32 +164,7 @@ export default function ItemDetails() {
     setActionLoading(false)
   }
 
-  async function sendMessage() {
-    if (!message.trim() || actionLoading) return
-    setActionLoading(true)
-    // Simple message simulation for now as requested
-    toast.success("Message sent! Seller will respond soon.")
-    
-    if (item.seller_id !== user.id) {
-      const { data: sender } = await supabase
-        .from("users")
-        .select("name")
-        .eq("id", user.id)
-        .single()
 
-      await createNotification(
-        item.seller_id,
-        'message',
-        'New Message 💬',
-        `${sender?.name || 'Someone'} sent you a message regarding "${item.title}"`,
-        item.id
-      )
-    }
-
-    setMessage('')
-    setContactOpen(false)
-    setActionLoading(false)
-  }
 
   async function report(reason) {
     if (!user) { navigate('/login'); return }
@@ -434,23 +407,7 @@ export default function ItemDetails() {
         )}
       </div>
 
-      {/* Contact Modal */}
-      <ModalDialog isOpen={contactOpen} onClose={()=>setContactOpen(false)} title={`Contact ${item.seller?.name || 'Seller'}`}>
-        <p style={{color:'#6B7280',fontSize:14,marginBottom:16}}>Send a message about "<strong>{item.title}</strong>"</p>
-        <textarea
-          value={message} onChange={e=>setMessage(e.target.value)}
-          placeholder="Hi! I'm interested in this item. Is it still available?"
-          rows={4}
-          className="input-field"
-          style={{resize:'vertical',lineHeight:1.6}}
-        />
-        <div style={{display:'flex',gap:10,marginTop:16}}>
-          <button className="btn-secondary" onClick={()=>setContactOpen(false)} style={{flex:1,justifyContent:'center'}} disabled={actionLoading}>Cancel</button>
-          <button className="btn-primary" onClick={sendMessage} style={{flex:2,justifyContent:'center'}} disabled={!message.trim() || actionLoading}>
-            <MessageCircle size={16}/> Send Message
-          </button>
-        </div>
-      </ModalDialog>
+
 
       {/* Report Modal */}
       <ModalDialog isOpen={reportOpen} onClose={()=>setReportOpen(false)} title="Report This Listing">

@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { formatDistanceToNow } from 'date-fns'
+import { useNavigate } from 'react-router-dom'
 
 import { supabase } from '../lib/supabase'
 import { increaseTrustScore } from '../lib/notifications'
@@ -35,14 +36,13 @@ function StatusBadge({ status }) {
 
 export default function Activity() {
   const { user } = useAuth()
+  const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState('timeline')
   const [myListings, setMyListings] = useState([])
   const [myWishlist, setMyWishlist] = useState([])
   const [chatRequests, setChatRequests] = useState([])
   const [loading, setLoading] = useState(true)
   const [deleteModal, setDeleteModal] = useState(null)
-  const [replyModal, setReplyModal]   = useState(null)
-  const [reply, setReply]         = useState('')
   const [showConfetti, setShowConfetti] = useState(false)
   const [timelineList, setTimelineList] = useState([])
 
@@ -126,6 +126,38 @@ export default function Activity() {
     })
     setTimelineList(timeline)
 
+    // Fetch messages for chat tab
+    const { data: msgs } = await supabase
+      .from('messages')
+      .select('*')
+      .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`)
+      .order('created_at', { ascending: false })
+
+    if (msgs) {
+      let chatMap = new Map()
+      msgs.forEach(m => {
+        const otherUserId = m.sender_id === user.id ? m.receiver_id : m.sender_id
+        const key = `${m.item_id}_${otherUserId}`
+        // Map keeps the first (latest) occurrence
+        if (!chatMap.has(key)) {
+          chatMap.set(key, { ...m, otherUserId })
+        }
+      })
+
+      const uniqueChats = Array.from(chatMap.values())
+      
+      // We perform simple sequential fetch for details as the count won't typically exceed a dozen initially
+      for (const chat of uniqueChats) {
+        const { data: itemData } = await supabase.from('items').select('title').eq('id', chat.item_id).single()
+        const { data: userData } = await supabase.from('users').select('name, avatar_url').eq('id', chat.otherUserId).single()
+        
+        chat.itemTitle = itemData?.title || 'Unknown Item'
+        chat.otherUserName = userData?.name || 'Unknown User'
+        chat.otherUserAvatar = userData?.avatar_url || null
+      }
+      setChatRequests(uniqueChats)
+    }
+
     setLoading(false)
   }
 
@@ -168,11 +200,7 @@ export default function Activity() {
     }
   }
 
-  function sendReply() {
-    toast.success('Reply sent!')
-    setReply('')
-    setReplyModal(null)
-  }
+
 
   return (
     <PageWrapper>
@@ -336,26 +364,35 @@ export default function Activity() {
                   <h3 style={{color:'#6B7280',fontWeight:600}}>No messages yet</h3>
                   <p style={{color:'#94A3B8',fontSize:14}}>When students contact you about your items, messages will appear here.</p>
                 </div>
-              ) : chatRequests.map(chat => (
-                <div key={chat.id} style={{padding:20,background:'#fff',borderRadius:16,marginBottom:12,border:`1px solid ${chat.status==='new'?'#BFDBFE':'#F1F5F9'}`,boxShadow:'0 2px 8px rgba(0,0,0,0.05)',position:'relative'}}>
-                  {chat.status==='new' && (
-                    <span style={{position:'absolute',top:16,right:16,background:'#DBEAFE',color:'#1D4ED8',padding:'2px 8px',borderRadius:999,fontSize:11,fontWeight:700}}>New</span>
-                  )}
-                  <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:10}}>
-                    <div style={{width:36,height:36,borderRadius:'50%',background:'linear-gradient(135deg,#10B981,#059669)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:14,color:'#fff',fontWeight:700,flexShrink:0}}>
-                      {chat.buyer.charAt(0)}
+              ) : chatRequests.map(chat => {
+                const timestampStr = chat.created_at.endsWith('Z') || chat.created_at.includes('+') ? chat.created_at : chat.created_at + 'Z'
+                const relativeTime = formatDistanceToNow(new Date(timestampStr), { addSuffix: true })
+                
+                return (
+                  <div key={`${chat.item_id}_${chat.otherUserId}`} onClick={() => navigate(`/chat/${chat.item_id}/${chat.otherUserId}`)} style={{padding:20,background:'#fff',borderRadius:16,marginBottom:12,border:`1px solid #F1F5F9`,boxShadow:'0 2px 8px rgba(0,0,0,0.05)',cursor:'pointer',transition:'all 0.2s',position:'relative'}}
+                       onMouseEnter={e=>e.currentTarget.style.transform='translateY(-2px)'}
+                       onMouseLeave={e=>e.currentTarget.style.transform='translateY(0)'}>
+                    <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:10}}>
+                      <div style={{width:36,height:36,borderRadius:'50%',background:'linear-gradient(135deg,#10B981,#059669)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:14,color:'#fff',fontWeight:700,flexShrink:0}}>
+                        {chat.otherUserAvatar ? (
+                          <img src={chat.otherUserAvatar} alt="" style={{width:36,height:36,borderRadius:'50%',objectFit:'cover'}} />
+                        ) : (
+                          chat.otherUserName.charAt(0).toUpperCase()
+                        )}
+                      </div>
+                      <div style={{flex:1}}>
+                        <p style={{fontWeight:700,fontSize:14,margin:0}}>{chat.otherUserName}</p>
+                        <p style={{color:'#6B7280',fontSize:12,margin:0}}>About: <strong>{chat.itemTitle}</strong></p>
+                      </div>
+                      <span style={{fontSize:12,color:'#9CA3AF'}}>{relativeTime}</span>
                     </div>
-                    <div>
-                      <p style={{fontWeight:700,fontSize:14,margin:0}}>{chat.buyer}</p>
-                      <p style={{color:'#6B7280',fontSize:12,margin:0}}>About: <strong>{chat.item}</strong> · {chat.time}</p>
-                    </div>
+                    <p style={{color:'#374151',fontSize:14,margin:'0 0 0px',background:'#F8FAFC',padding:'10px 14px',borderRadius:10,lineHeight:1.5}}>
+                      {chat.sender_id === user.id ? <em>You: </em> : null}
+                      "{chat.message}"
+                    </p>
                   </div>
-                  <p style={{color:'#374151',fontSize:14,margin:'0 0 14px',background:'#F8FAFC',padding:'10px 14px',borderRadius:10,lineHeight:1.5}}>"{chat.msg}"</p>
-                  <button onClick={()=>setReplyModal(chat)} className="btn-primary" style={{padding:'8px 18px',fontSize:13}}>
-                    <MessageCircle size={14}/> Reply
-                  </button>
-                </div>
-              ))}
+                )
+              })}
             </motion.div>
           )}
 
@@ -398,18 +435,7 @@ export default function Activity() {
         </div>
       </ModalDialog>
 
-      {/* Reply modal */}
-      <ModalDialog isOpen={!!replyModal} onClose={()=>setReplyModal(null)} title={`Reply to ${replyModal?.buyer}`}>
-        <p style={{fontSize:14,color:'#6B7280',marginBottom:10}}>Their message: <em>"{replyModal?.msg}"</em></p>
-        <textarea value={reply} onChange={e=>setReply(e.target.value)} placeholder="Type your reply..." rows={4}
-          className="input-field" style={{resize:'vertical',lineHeight:1.6,marginBottom:16}} />
-        <div style={{display:'flex',gap:10}}>
-          <button className="btn-secondary" onClick={()=>setReplyModal(null)} style={{flex:1,justifyContent:'center'}}>Cancel</button>
-          <button className="btn-primary" onClick={sendReply} style={{flex:2,justifyContent:'center'}} disabled={!reply.trim()}>
-            <MessageCircle size={15}/> Send Reply
-          </button>
-        </div>
-      </ModalDialog>
+
 
       <style>{`@media (max-width:640px) { .profile-grid { grid-template-columns: 1fr !important; } }`}</style>
     </PageWrapper>
